@@ -21,6 +21,8 @@
 
 
 #define NUM_SWAP_BUFFERS 3
+#define NUM_CONST_BUFFERS 16
+#define CONST_DESC_HEAP_INDEX 0
 
 //struct ConstantBuffer
 //{
@@ -58,6 +60,8 @@ public:
 	void frame();
 	void present();
 
+	ID3D12Device4* GetDevice4() { return this->device4; }
+
 private:
 	SDL_Window* window;
 	HWND hwnd;
@@ -69,12 +73,12 @@ private:
 
 	//int initializeOpenGL(int major, int minor, unsigned int width, unsigned int height);
 	float clearColor[4] = { 0,0,0,0 };
-	std::unordered_map<int, int> BUFFER_MAP = {
-		{0, 0},
-		{CLEAR_BUFFER_FLAGS::COLOR, GL_COLOR_BUFFER_BIT },
-		{CLEAR_BUFFER_FLAGS::DEPTH, GL_DEPTH_BUFFER_BIT },
-		{CLEAR_BUFFER_FLAGS::STENCIL, GL_STENCIL_BUFFER_BIT }
-	};
+	//std::unordered_map<int, int> BUFFER_MAP = {
+	//	{0, 0},
+	//	{CLEAR_BUFFER_FLAGS::COLOR, GL_COLOR_BUFFER_BIT },
+	//	{CLEAR_BUFFER_FLAGS::DEPTH, GL_DEPTH_BUFFER_BIT },
+	//	{CLEAR_BUFFER_FLAGS::STENCIL, GL_STENCIL_BUFFER_BIT }
+	//};
 
 	void CreateDirect3DDevice(HWND wndHandle);				//2. Create Device
 	void CreateCommandInterfacesAndSwapChain(HWND wndHandle);	//3. Create CommandQueue and SwapChain
@@ -113,8 +117,8 @@ private:
 	D3D12_VERTEX_BUFFER_VIEW	vertexBufferView;
 
 	//Stefans cBuffers
-	ID3D12DescriptorHeap*		descriptorHeap[NUM_SWAP_BUFFERS] = {};
-	ID3D12Resource1*			constantBufferResource[NUM_SWAP_BUFFERS] = {};
+	ID3D12DescriptorHeap*		descriptorHeap[NUM_CONST_BUFFERS] = {};
+	ID3D12Resource1*			constantBufferResource[NUM_CONST_BUFFERS] = {};
 	//ConstantBuffer			gConstantBufferCPU = {};
 
 };

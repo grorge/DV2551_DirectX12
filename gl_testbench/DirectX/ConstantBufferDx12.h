@@ -1,7 +1,8 @@
 #pragma once
 #include "../ConstantBuffer.h"
+#include <Windows.h>
 
-struct UINT {};
+//struct UINT {};
 
 class ConstantBufferDx12 : public ConstantBuffer
 {
@@ -11,6 +12,7 @@ public:
 	void setData(const void* data, size_t size, Material* m, unsigned int location);
 	void bind(Material*);
 
+	void init();
 private:
 
 	std::string name;

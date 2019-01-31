@@ -2,9 +2,10 @@
 
 #include "../Material.h"
 #include <vector>
+#include <Windows.h>
 //#include "ConstantBufferDx12.h"
 
-class Dx12Renderer;
+class dxRenderer;
 
 //#define DBOUTW( s )\
 //{\
@@ -40,10 +41,11 @@ class Dx12Renderer;
 class MaterialDx12 :
 	public Material
 {
-	friend Dx12Renderer;
+	friend dxRenderer;
 
 public:
 	MaterialDx12(const std::string& name);
+	MaterialDx12(const std::string& name, dxRenderer* rnd);
 	~MaterialDx12();
 
 
@@ -77,4 +79,5 @@ private:
 	int compileShader(ShaderType type, std::string& errString);
 	std::vector<std::string> expandShaderText(std::string& shaderText, ShaderType type);
 
+	dxRenderer* rnd = nullptr;
 };

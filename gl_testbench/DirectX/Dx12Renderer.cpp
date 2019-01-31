@@ -13,6 +13,9 @@ dxRenderer::~dxRenderer()
 
 Material * dxRenderer::makeMaterial(const std::string & name)
 {
+
+	//new MaterialDx12(name);
+
 	return new MaterialDx12(name);
 }
 
@@ -28,6 +31,8 @@ VertexBuffer * dxRenderer::makeVertexBuffer(size_t size, VertexBuffer::DATA_USAG
 
 ConstantBuffer * dxRenderer::makeConstantBuffer(std::string NAME, unsigned int location)
 {
+
+
 	return nullptr;
 }
 
@@ -176,7 +181,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	{
 		if (SUCCEEDED(swapChain1->QueryInterface(IID_PPV_ARGS(&swapChain4))))
 		{
-			swapChain4->Release();
+			//swapChain4->Release();
 		}
 	}
 
@@ -221,6 +226,58 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	scissorRect.right = (long)width;
 	scissorRect.top = (long)0;
 	scissorRect.bottom = (long)height;
+
+
+	// ---------------- Constant buffer Rescources
+
+	D3D12_DESCRIPTOR_HEAP_DESC heapDescriptorDesc = {};
+	heapDescriptorDesc.NumDescriptors = NUM_CONST_BUFFERS;
+	heapDescriptorDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	heapDescriptorDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	device4->CreateDescriptorHeap(&heapDescriptorDesc, IID_PPV_ARGS(&descriptorHeap[CONST_DESC_HEAP_INDEX]));
+
+	UINT constBuffersSize = device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	D3D12_CPU_DESCRIPTOR_HANDLE cdh2 = descriptorHeap[CONST_DESC_HEAP_INDEX]->GetCPUDescriptorHandleForHeapStart();
+
+	UINT cbSizeAligned = (sizeof(ConstantBuffer) + 255) & ~255;	// 256-byte aligned CB.
+
+	D3D12_HEAP_PROPERTIES heapProperties = {};
+	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProperties.CreationNodeMask = 1; //used when multi-gpu
+	heapProperties.VisibleNodeMask = 1; //used when multi-gpu
+	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+	D3D12_RESOURCE_DESC resourceDesc = {};
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	resourceDesc.Width = cbSizeAligned;
+	resourceDesc.Height = 1;
+	resourceDesc.DepthOrArraySize = 1;
+	resourceDesc.MipLevels = 1;
+	resourceDesc.SampleDesc.Count = 1;
+	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+	//Create a resource heap, descriptor heap, and pointer to cbv for each frame
+	for (int i = 0; i < NUM_CONST_BUFFERS; i++)
+	{
+		HRESULT hr = device4->CreateCommittedResource(
+			&heapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&resourceDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&constantBufferResource[i])
+		);
+
+		constantBufferResource[i]->SetName(L"cb heap");
+
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+		cbvDesc.BufferLocation = constantBufferResource[i]->GetGPUVirtualAddress();
+		cbvDesc.SizeInBytes = cbSizeAligned;
+		device4->CreateConstantBufferView(&cbvDesc, cdh2);
+
+		cdh.ptr += constBuffersSize;
+	}
 
 	// ---------------- Root signature?
 

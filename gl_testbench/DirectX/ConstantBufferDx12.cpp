@@ -3,11 +3,11 @@
 
 ConstantBufferDx12::ConstantBufferDx12(std::string NAME, unsigned int location)
 {
-	this->location	= 0;
+	this->location	= location;
 	this->buff		= nullptr;
 	this->index		= 0;
 	this->lastMat	= nullptr;
-	this->name		= "Unknown";
+	this->name		= NAME;
 	this->handle	= 0;
 }
 
@@ -21,4 +21,9 @@ void ConstantBufferDx12::setData(const void * data, size_t size, Material * m, u
 
 void ConstantBufferDx12::bind(Material *)
 {
+}
+
+void ConstantBufferDx12::init()
+{
+	
 }
