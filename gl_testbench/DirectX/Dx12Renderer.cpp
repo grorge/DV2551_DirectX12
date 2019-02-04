@@ -38,22 +38,22 @@ ConstantBuffer * dxRenderer::makeConstantBuffer(std::string NAME, unsigned int l
 
 RenderState * dxRenderer::makeRenderState()
 {
-	return nullptr;
+	return new RenderStateDx12;
 }
 
 Technique * dxRenderer::makeTechnique(Material * m, RenderState * r)
 {
-	return nullptr;
+	return new Technique(m,r);
 }
 
 Texture2D * dxRenderer::makeTexture2D()
 {
-	return nullptr;
+	return new Texture2DDx12;
 }
 
 Sampler2D * dxRenderer::makeSampler2D()
 {
-	return nullptr;
+	return new Sampler2DDx12;
 }
 
 std::string dxRenderer::getShaderPath()
@@ -276,10 +276,74 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 		cbvDesc.SizeInBytes = cbSizeAligned;
 		device4->CreateConstantBufferView(&cbvDesc, cdh2);
 
-		cdh.ptr += constBuffersSize;
+		cdh2.ptr += constBuffersSize;
 	}
 
-	// ---------------- Root signature?
+	// ---------------- Root signature
+
+	//define descriptor range(s)
+	D3D12_DESCRIPTOR_RANGE  dtRangesCBV[1];
+	dtRangesCBV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	dtRangesCBV[0].NumDescriptors = NUM_CONST_BUFFERS; //only one CB in this example
+	dtRangesCBV[0].BaseShaderRegister = 0; //register b0
+	dtRangesCBV[0].RegisterSpace = 0; //register(b0,space0);
+	dtRangesCBV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//create a descriptor table
+	D3D12_ROOT_DESCRIPTOR_TABLE dtCBV;
+	dtCBV.NumDescriptorRanges = ARRAYSIZE(dtRangesCBV);
+	dtCBV.pDescriptorRanges = dtRangesCBV;
+
+	//define descriptor range(s)
+	D3D12_DESCRIPTOR_RANGE  dtRangesSRV[1];
+	dtRangesSRV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	dtRangesSRV[0].NumDescriptors = NUM_SRV; 
+	dtRangesSRV[0].BaseShaderRegister = 0; //register t0
+	dtRangesSRV[0].RegisterSpace = 0; //register(t0,space1);
+	dtRangesSRV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//create a descriptor table
+	D3D12_ROOT_DESCRIPTOR_TABLE dtSRV;
+	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
+	dtSRV.pDescriptorRanges = dtRangesSRV;
+
+
+
+	//create root parameter
+	D3D12_ROOT_PARAMETER  rootParam[2];
+	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[0].DescriptorTable = dtCBV;
+	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+	rootParam[1].DescriptorTable = dtSRV;
+	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	D3D12_ROOT_SIGNATURE_DESC rsDesc;
+	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rsDesc.NumParameters = ARRAYSIZE(rootParam);
+	rsDesc.pParameters = rootParam;
+	rsDesc.NumStaticSamplers = 0;
+	rsDesc.pStaticSamplers = nullptr;
+
+	ID3DBlob* sBlob;
+	D3D12SerializeRootSignature(
+		&rsDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&sBlob,
+		nullptr);
+
+	device4->CreateRootSignature(
+		0,
+		sBlob->GetBufferPointer(),
+		sBlob->GetBufferSize(),
+		IID_PPV_ARGS(&rootSignature));
+
+
+	// --------------------- Render State
+
+
+
 
 	return 0;
 }

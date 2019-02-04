@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../Renderer.h"
+#include "RenderStateDx12.h"
+#include "Texture2DDx12.h"
+#include "Sampler2DDx12.h"
 
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -22,6 +25,7 @@
 
 #define NUM_SWAP_BUFFERS 3
 #define NUM_CONST_BUFFERS 16
+#define NUM_SRV 4
 #define CONST_DESC_HEAP_INDEX 0
 
 //struct ConstantBuffer
@@ -31,6 +35,7 @@
 
 class dxRenderer : public Renderer
 {
+	friend class MaterialDx12;
 public:
 	dxRenderer();
 	~dxRenderer();
@@ -111,7 +116,6 @@ private:
 	D3D12_RECT					scissorRect = {};
 
 	ID3D12RootSignature*		rootSignature;
-	ID3D12PipelineState*		pipeLineState;
 
 	ID3D12Resource1*			vertexBufferResource;
 	D3D12_VERTEX_BUFFER_VIEW	vertexBufferView;

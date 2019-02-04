@@ -31,7 +31,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 		exit(-1);
 	};
 
-	rnd->GetDevice4();
+	//rnd->GetDevice4();
 	// try to link the program
 	// link shader program (connect vs and ps)
 	//if (program != 0)
@@ -51,7 +51,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsd = {};
 
 	//Specify pipeline stages:
-	gpsd.pRootSignature = gRootSignature;
+	gpsd.pRootSignature = rnd->rootSignature;
 	gpsd.InputLayout = inputLayoutDesc;
 	gpsd.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	gpsd.VS.pShaderBytecode = reinterpret_cast<void*>(vertexBlob->GetBufferPointer());
@@ -79,7 +79,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
 		gpsd.BlendState.RenderTarget[i] = defaultRTdesc;
 
-	device4->CreateGraphicsPipelineState(&gpsd, IID_PPV_ARGS(&gPipeLineState));
+	rnd->device4->CreateGraphicsPipelineState(&gpsd, IID_PPV_ARGS(&this->pipeLineState));
 
 	//program = glCreateProgram();
 	//glAttachShader(program, shaderObjects[(GLuint)ShaderType::VS]);
@@ -108,33 +108,64 @@ void MaterialDx12::setDiffuse(Color c)
 
 void MaterialDx12::updateConstantBuffer(const void * data, size_t size, unsigned int location)
 {
+	//Update GPU memory
+	void* mappedMem = nullptr;
+	D3D12_RANGE readRange = { 0, 0 }; //We do not intend to read this resource on the CPU.
+	if (SUCCEEDED(rnd->constantBufferResource[location]->Map(0, &readRange, &mappedMem)))
+	{
+		memcpy(mappedMem, &data, size);
+
+		D3D12_RANGE writeRange = { 0, size };
+		rnd->constantBufferResource[location]->Unmap(0, &writeRange);
+	}
 }
+
 
 void MaterialDx12::addConstantBuffer(std::string name, unsigned int location)
 {
-	
+	std::wstring stemp = std::wstring(name.begin(), name.end());
+	LPCWSTR sw = stemp.c_str();
+
+	if (location >= NUM_CONST_BUFFERS) return; 
+
+	rnd->constantBufferResource[location]->SetName(sw);
 }
 
 int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 {
 	////// Shader Compiles //////
-	ID3DBlob* blob;
-
 	HRESULT hr;
+
+	D3D_SHADER_MACRO* macro;
+
+	/*for (const auto &myPair : myMap) {
+		std::cout << myPair.first << "\n";
+	}*/
 
 	switch (type)
 	{
 	case Material::ShaderType::VS:
 
+		/*unsigned int len = shaderDefines.size();
+
+		macro = new D3D_SHADER_MACRO[len];
+
+		for (int i = 0; i < len; i++)
+		{
+			
+			macro[i].Name = shaderDefines.at(Material::ShaderType::VS, this->name);
+			macro[i].Definition = shaderDefines.;
+		}*/
+
 		hr = D3DCompileFromFile(
 			L"VertexShader.hlsl", // filename
-			nullptr,		// optional macros
+			macro,		// optional macros
 			nullptr,		// optional include files
 			"main",		// entry point
 			"vs_5_0",		// shader model (target)
 			0,				// shader compile options			// here DEBUGGING OPTIONS
 			0,				// effect compile options
-			&blob,	// double pointer to ID3DBlob		
+			&this->vertexBlob,	// double pointer to ID3DBlob		
 			nullptr			// pointer for Error Blob messages.
 							// how to use the Error blob, see here
 							// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
@@ -149,7 +180,7 @@ int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 			"ps_5_0",		// shader model (target)
 			0,				// shader compile options			// here DEBUGGING OPTIONS
 			0,				// effect compile options
-			&blob,		// double pointer to ID3DBlob		
+			&this->pixelBlob,		// double pointer to ID3DBlob		
 			nullptr			// pointer for Error Blob messages.
 							// how to use the Error blob, see here
 							// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx

@@ -79,5 +79,11 @@ private:
 	int compileShader(ShaderType type, std::string& errString);
 	std::vector<std::string> expandShaderText(std::string& shaderText, ShaderType type);
 
+
+	ID3DBlob* vertexBlob;
+	ID3DBlob* pixelBlob;
+
+	ID3D12PipelineState* pipeLineState;
+
 	dxRenderer* rnd = nullptr;
 };
