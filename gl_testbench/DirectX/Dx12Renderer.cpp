@@ -16,7 +16,7 @@ Material * dxRenderer::makeMaterial(const std::string & name)
 
 	//new MaterialDx12(name);
 
-	return new MaterialDx12(name);
+	return new MaterialDx12(name, this);
 }
 
 Mesh * dxRenderer::makeMesh()

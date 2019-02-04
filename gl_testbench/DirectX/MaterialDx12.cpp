@@ -36,38 +36,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	// link shader program (connect vs and ps)
 	//if (program != 0)
 	//	glDeleteProgram(program);
-
-	////// Shader Compiles //////
-	ID3DBlob* vertexBlob;
-	D3DCompileFromFile(
-		L"VertexShader.hlsl", // filename
-		nullptr,		// optional macros
-		nullptr,		// optional include files
-		"main",		// entry point
-		"vs_5_0",		// shader model (target)
-		0,				// shader compile options			// here DEBUGGING OPTIONS
-		0,				// effect compile options
-		&vertexBlob,	// double pointer to ID3DBlob		
-		nullptr			// pointer for Error Blob messages.
-						// how to use the Error blob, see here
-						// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
-	);
-
-	ID3DBlob* pixelBlob;
-	D3DCompileFromFile(
-		L"PixelShader.hlsl", // filename
-		nullptr,		// optional macros
-		nullptr,		// optional include files
-		"main",		// entry point
-		"ps_5_0",		// shader model (target)
-		0,				// shader compile options			// here DEBUGGING OPTIONS
-		0,				// effect compile options
-		&pixelBlob,		// double pointer to ID3DBlob		
-		nullptr			// pointer for Error Blob messages.
-						// how to use the Error blob, see here
-						// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
-	);
-
+	
 	////// Input Layout //////
 	D3D12_INPUT_ELEMENT_DESC inputElementDesc[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -110,7 +79,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
 		gpsd.BlendState.RenderTarget[i] = defaultRTdesc;
 
-	gDevice5->CreateGraphicsPipelineState(&gpsd, IID_PPV_ARGS(&gPipeLineState));
+	device4->CreateGraphicsPipelineState(&gpsd, IID_PPV_ARGS(&gPipeLineState));
 
 	//program = glCreateProgram();
 	//glAttachShader(program, shaderObjects[(GLuint)ShaderType::VS]);
@@ -144,6 +113,64 @@ void MaterialDx12::updateConstantBuffer(const void * data, size_t size, unsigned
 void MaterialDx12::addConstantBuffer(std::string name, unsigned int location)
 {
 	
+}
+
+int MaterialDx12::compileShader(ShaderType type, std::string & errString)
+{
+	////// Shader Compiles //////
+	ID3DBlob* blob;
+
+	HRESULT hr;
+
+	switch (type)
+	{
+	case Material::ShaderType::VS:
+
+		hr = D3DCompileFromFile(
+			L"VertexShader.hlsl", // filename
+			nullptr,		// optional macros
+			nullptr,		// optional include files
+			"main",		// entry point
+			"vs_5_0",		// shader model (target)
+			0,				// shader compile options			// here DEBUGGING OPTIONS
+			0,				// effect compile options
+			&blob,	// double pointer to ID3DBlob		
+			nullptr			// pointer for Error Blob messages.
+							// how to use the Error blob, see here
+							// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
+		);
+		break;
+	case Material::ShaderType::PS:
+		D3DCompileFromFile(
+			L"PixelShader.hlsl", // filename
+			nullptr,		// optional macros
+			nullptr,		// optional include files
+			"main",		// entry point
+			"ps_5_0",		// shader model (target)
+			0,				// shader compile options			// here DEBUGGING OPTIONS
+			0,				// effect compile options
+			&blob,		// double pointer to ID3DBlob		
+			nullptr			// pointer for Error Blob messages.
+							// how to use the Error blob, see here
+							// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
+		);
+		break;
+	case Material::ShaderType::GS:
+		break;
+	case Material::ShaderType::CS:
+		break;
+	default:
+		break;
+	}
+
+
+
+	return hr == S_OK;
+}
+
+std::vector<std::string> MaterialDx12::expandShaderText(std::string & shaderText, ShaderType type)
+{
+	return std::vector<std::string>();
 }
 
 MaterialDx12::MaterialDx12(const std::string & name)
