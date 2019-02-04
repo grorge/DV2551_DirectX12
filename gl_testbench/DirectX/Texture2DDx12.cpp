@@ -22,14 +22,23 @@ int Texture2DDx12::loadFromFile(std::string filename)
 		return -1;
 	}
 
-	D3D12_SUBRESOURCE_FOOTPRINT pitchedDesc = { 0 };
-	pitchedDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	pitchedDesc.Width = bitmapWidth;
-	pitchedDesc.Height = bitmapHeight;
+	UINT textureAlined = (w * sizeof(DWORD) + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) & ~D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+
+	D3D12_SUBRESOURCE_FOOTPRINT pitchedDesc = {  };
+	pitchedDesc.Format = DXGI_FORMAT_R8G8B8A8_UINT;
+	pitchedDesc.Width = w;
+	pitchedDesc.Height = h;
 	pitchedDesc.Depth = 1;
-	pitchedDesc.RowPitch = Align(bitmapWidth * sizeof(DWORD), D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+	pitchedDesc.RowPitch = textureAlined;
+	   	
+
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT placedTexture2D = { 0 };
+	placedTexture2D.Offset = 0;
+	placedTexture2D.Footprint = pitchedDesc;
 
 
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Dimension = 2;
 
 	return 0;
 }
