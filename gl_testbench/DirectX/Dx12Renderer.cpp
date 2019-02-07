@@ -29,12 +29,12 @@ Mesh * dxRenderer::makeMesh()
 VertexBuffer * dxRenderer::makeVertexBuffer(size_t size, VertexBuffer::DATA_USAGE usage)
 {
 	//return new VertexBufferDx12(size, usage);
-	return new VertexBufferDx12(size / 100, size, this);
+	return new VertexBufferDx12(size / 3 , size, this);
 }
 
 ConstantBuffer * dxRenderer::makeConstantBuffer(std::string NAME, unsigned int location)
 {
-	return new ConstantBufferDx12(NAME, location);
+	return new ConstantBufferDx12(NAME, location, this);
 }
 
 RenderState * dxRenderer::makeRenderState()
@@ -390,7 +390,8 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	// --------------------- 
 
 	// For testing
-	CreateTriangleData();
+	
+	//CreateTriangleData();
 
 
 	ID3DBlob* vertexBlob;
@@ -425,8 +426,8 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 
 	////// Input Layout //////
 	D3D12_INPUT_ELEMENT_DESC inputElementDesc[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOR"	, 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0,	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		//{ "COLOR"	, 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc;
@@ -595,6 +596,7 @@ void dxRenderer::renderTest()
 {
 	UINT backBufferIndex = swapChain4->GetCurrentBackBufferIndex();
 
+	
 	//Update color values in constant buffer
 	for (int i = 0; i < 3; i++)
 	{
@@ -604,18 +606,6 @@ void dxRenderer::renderTest()
 			colorBuffer[i] = 0;
 		}
 	}
-
-	//Update GPU memory
-	void* mappedMem = nullptr;
-	D3D12_RANGE readRange = { 0, 0 }; //We do not intend to read this resource on the CPU.
-	if (SUCCEEDED(constantBufferResource[backBufferIndex]->Map(0, &readRange, &mappedMem)))
-	{
-		memcpy(mappedMem, &colorBuffer, sizeof(float)*4);
-
-		D3D12_RANGE writeRange = { 0, sizeof(float) * 4 };
-		constantBufferResource[backBufferIndex]->Unmap(0, &writeRange);
-	}
-
 
 	//Command list allocators can only be reset when the associated command lists have
 	//finished execution on the GPU; fences are used to ensure this (See WaitForGpu method)
@@ -656,14 +646,15 @@ void dxRenderer::renderTest()
 
 	commandList4->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//commandList4->IASetVertexBuffers(0, 1, &this->vertexBufferView);
-	this->vertBuffer->bind(0, 0, 0);
-	commandList4->DrawInstanced(3, 1, 0, 0);
+	//this->vertBuffer->bind(0, 0, 0);
+	//commandList4->DrawInstanced(3, 1, 0, 0);
 
-	//for (auto m : this->drawListDx12)
-	//{
-	//	m->readyDraw();
-	//	commandList4->DrawInstanced(3, 1, 0, 0);
-	//}
+
+	for (auto m : this->drawListDx12)
+	{
+		m->readyDraw();
+		commandList4->DrawInstanced(3, 1, 0, 0);
+	}
 
 
 	//Indicate that the back buffer will now be used to present.
@@ -722,18 +713,8 @@ void dxRenderer::CreateTriangleData()
 		0.0f, 1.0f, 0.0f,	//v1 color
 
 		-0.5f, -0.5f, 0.0f, //v2
-		0.0f, 0.0f, 1.0f,	//v2 color
-
-		// -----------------------
-
-		0.0f, 0.5f, 0.0f,	//v0 pos
-		1.0f, 0.0f, 0.0f,	//v0 color
-
-		0.5f, -0.5f, 0.0f,	//v1
-		0.0f, 1.0f, 0.0f,	//v1 color
-
-		-1.5f, -0.5f, 0.0f, //v2
 		0.0f, 0.0f, 1.0f	//v2 color
+		
 	};
 
 	this->vertBuffer = new VertexBufferDx12(sizeof(Vertex), sizeof(triangleVertices), this);

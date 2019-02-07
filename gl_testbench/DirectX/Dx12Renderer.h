@@ -6,6 +6,7 @@
 #include "Sampler2DDx12.h"
 #include "VertexBufferDx12.h"
 #include "MeshDx12.h"
+#include "ConstantBufferDx12.h"
 
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -40,6 +41,7 @@ class dxRenderer : public Renderer
 	friend class Texture2DDx12;
 	friend class Sampler2DDx12;
 	friend class VertexBufferDx12;
+	friend class ConstantBufferDx12;
 
 public:
 	dxRenderer();

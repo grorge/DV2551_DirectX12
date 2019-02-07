@@ -1,4 +1,14 @@
 #pragma once
+// lissajous points
+typedef union {
+	struct { float x, y, z, w; };
+	struct { float r, g, b, a; };
+} float4;
+
+typedef union {
+	struct { float x, y; };
+	struct { float u, v; };
+} float2;
 
 
 #include <d3d12.h>

@@ -91,20 +91,7 @@ void run() {
 
 void renderSceneTest();
 
-void runTest() {
-
-	SDL_Event windowEvent;
-	while (true)
-	{
-		if (SDL_PollEvent(&windowEvent))
-		{
-			if (windowEvent.type == SDL_QUIT) break;
-			if (windowEvent.type == SDL_KEYUP && windowEvent.key.keysym.sym == SDLK_ESCAPE) break;
-		}
-		//updateScene();
-		renderSceneTest();
-	}
-}
+void runTest();
 
 /*
  update positions of triangles in the screen changing a translation only
@@ -120,6 +107,7 @@ void updateScene()
 		for (int i = 0; i < size; i++)
 		{
 			const float4 trans { 
+				//1.12f, 
 				xt[(int)(float)(i + shift) % (TOTAL_PLACES)], 
 				yt[(int)(float)(i + shift) % (TOTAL_PLACES)], 
 				i * (-1.0 / TOTAL_PLACES),
@@ -318,6 +306,8 @@ void shutdown() {
 	renderer->shutdown();
 };
 
+int frame = 0;
+
 int main(int argc, char *argv[])
 {
 	renderer = Renderer::makeRenderer(Renderer::BACKEND::DX12);
@@ -333,7 +323,6 @@ int main(int argc, char *argv[])
 	runTest();
 	
 	
-	
 	//shutdown();
 	return 0;
 };
@@ -341,56 +330,93 @@ int main(int argc, char *argv[])
 
 void initTest()
 {
+	float degToRad = M_PI / 180.0;
+	float scale = (float)TOTAL_PLACES / 359.9;
+	for (int a = 0; a < TOTAL_PLACES; a++)
+	{
+		xt[a] = 0.8f * cosf(degToRad * ((float)a / scale) * 3.0);
+		yt[a] = 0.8f * sinf(degToRad * ((float)a / scale) * 2.0);
+	};
+
 	// triangle geometry:
 	float4 triPos[3] = { 
 		{ 0.0f,  0.05, 0.0f, 1.0f },
 		{ 0.05, -0.05, 0.0f, 1.0f },
 		{ -0.05, -0.05, 0.0f, 1.0f } 
 	};
-	float4 triNor[3] = { { 0.0f,  0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f } };
-	float2 triUV[3] = { { 0.5f,  -0.99f },{ 1.49f, 1.1f },{ -0.51, 1.1f } };
-
+	//float4 triNor[3] = { { 0.0f,  0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f } };
+	//float2 triUV[3] = { { 0.5f,  -0.99f },{ 1.49f, 1.1f },{ -0.51, 1.1f } };
 
 	// pre-allocate one single vertex buffer for ALL triangles
-	pos = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triPos), VertexBuffer::DATA_USAGE::STATIC);
-	nor = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triNor), VertexBuffer::DATA_USAGE::STATIC);
-	uvs = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triUV), VertexBuffer::DATA_USAGE::STATIC);
+	pos = renderer->makeVertexBuffer(sizeof(triPos), VertexBuffer::DATA_USAGE::STATIC);
+	//nor = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triNor), VertexBuffer::DATA_USAGE::STATIC);
+	//uvs = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triUV), VertexBuffer::DATA_USAGE::STATIC);
+	
+	Mesh* m = renderer->makeMesh();
 
+	constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value; // total amount of elements in pos
+	size_t offset = 0 * sizeof(triPos);
+	pos->setData(triPos, sizeof(triPos), offset);
+	m->addIAVertexBufferBinding(
+		pos,
+		offset,
+		numberOfPosElements,
+		sizeof(float4),
+		POSITION);
+
+	m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
+
+	scene.push_back(m);
+	
+	m = renderer->makeMesh();
+
+	offset = 1 * sizeof(triPos);
+	pos->setData(triPos, sizeof(triPos), offset);
+	m->addIAVertexBufferBinding(
+		pos,
+		offset,
+		numberOfPosElements,
+		sizeof(float4),
+		POSITION);
+
+	m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
+
+	scene.push_back(m);
 
 	// Create a mesh array with 3 basic vertex buffers.
-	for (int i = 0; i < TOTAL_TRIS; i++) {
+	//for (int i = 0; i < TOTAL_TRIS; i++) {
 
-		Mesh* m = renderer->makeMesh();
+	//	Mesh* m = renderer->makeMesh();
 
-		constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value;
-		size_t offset = i * sizeof(triPos);
-		pos->setData(triPos, sizeof(triPos), offset);
-		m->addIAVertexBufferBinding(
-			pos, 
-			offset, 
-			numberOfPosElements, 
-			sizeof(float4), 
-			POSITION);
+	//	constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value; // total amount of elements in pos
+	//	size_t offset = i * sizeof(triPos);
+	//	pos->setData(triPos, sizeof(triPos), offset);
+	//	m->addIAVertexBufferBinding(
+	//		pos, 
+	//		offset, 
+	//		numberOfPosElements, 
+	//		sizeof(float4), 
+	//		POSITION);
 
-		constexpr auto numberOfNorElements = std::extent<decltype(triNor)>::value;
-		offset = i * sizeof(triNor);
-		nor->setData(triNor, sizeof(triNor), offset);
-		m->addIAVertexBufferBinding(nor, offset, numberOfNorElements, sizeof(float4), NORMAL);
+	//	//constexpr auto numberOfNorElements = std::extent<decltype(triNor)>::value;
+	//	//offset = i * sizeof(triNor);
+	//	//nor->setData(triNor, sizeof(triNor), offset);
+	//	//m->addIAVertexBufferBinding(nor, offset, numberOfNorElements, sizeof(float4), NORMAL);
 
-		constexpr auto numberOfUVElements = std::extent<decltype(triUV)>::value;
-		offset = i * sizeof(triUV);
-		uvs->setData(triUV, sizeof(triUV), offset);
-		m->addIAVertexBufferBinding(uvs, offset, numberOfUVElements, sizeof(float2), TEXTCOORD);
+	//	//constexpr auto numberOfUVElements = std::extent<decltype(triUV)>::value;
+	//	//offset = i * sizeof(triUV);
+	//	//uvs->setData(triUV, sizeof(triUV), offset);
+	//	//m->addIAVertexBufferBinding(uvs, offset, numberOfUVElements, sizeof(float2), TEXTCOORD);
 
-		// we can create a constant buffer outside the material, for example as part of the Mesh.
-		//m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
+	//	// we can create a constant buffer outside the material, for example as part of the Mesh.
+	//	m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
 
-		//m->technique = techniques[i % 4];
-		//if (i % 4 == 2)
-			//m->addTexture(textures[0], DIFFUSE_SLOT);
+	//	//m->technique = techniques[i % 4];
+	//	//if (i % 4 == 2)
+	//		//m->addTexture(textures[0], DIFFUSE_SLOT);
 
-		scene.push_back(m);
-	}
+	//	scene.push_back(m);
+	//}
 
 }
 
@@ -401,4 +427,20 @@ void renderSceneTest()
 		renderer->submit(m);
 	}
 	renderer->frame();
+}
+
+
+void runTest() {
+
+	SDL_Event windowEvent;
+	while (true)
+	{
+		if (SDL_PollEvent(&windowEvent))
+		{
+			if (windowEvent.type == SDL_QUIT) break;
+			if (windowEvent.type == SDL_KEYUP && windowEvent.key.keysym.sym == SDLK_ESCAPE) break;
+		}
+		updateScene();
+		renderSceneTest();
+	}
 }
