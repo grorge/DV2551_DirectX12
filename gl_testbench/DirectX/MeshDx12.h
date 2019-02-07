@@ -1,23 +1,15 @@
 #pragma once
-#include "../Mesh.h"
+#include "VertexBufferDx12.h"
 
 
-class MeshDx12 : public Mesh
+class MeshDx12
 {
 public:
 	MeshDx12();
+	MeshDx12(VertexBuffer* vertBuffer);
 	~MeshDx12();
 
+	void readyDraw();
 private:
-
+	VertexBuffer* vertBuffer;
 };
-
-MeshDx12::MeshDx12()
-{
-	//this->geometryBuffers[0].buffer;
-	//rnd->commandList4->IASetVertexBuffers(location, 1, &this->resourceView);
-}
-
-MeshDx12::~MeshDx12()
-{
-}

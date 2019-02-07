@@ -11,9 +11,10 @@ class VertexBufferDx12 : public VertexBuffer
 public:
 
 	VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage);
+	//VertexBufferDx12(size_t size, VertexBufferDx12 buffer, ID3D12Resource* pResourceView);
 	VertexBufferDx12(
-		size_t size, 
-		VertexBuffer::DATA_USAGE usage, 
+		size_t size,
+		size_t totSize,
 		dxRenderer* rnd);
 	~VertexBufferDx12();
 
@@ -29,6 +30,6 @@ private:
 	UINT _handle;
 	dxRenderer* rnd;
 
-	ID3D12Resource * resource;
+	ID3D12Resource1 * resource;
 	D3D12_VERTEX_BUFFER_VIEW resourceView;
 };

@@ -34,6 +34,8 @@ void renderScene();
 char gTitleBuff[256];
 double gLastDelta = 0.0;
 
+void initTest();
+
 void updateDelta()
 {
 	#define WINDOW_SIZE 10
@@ -87,6 +89,23 @@ void run() {
 	}
 }
 
+void renderSceneTest();
+
+void runTest() {
+
+	SDL_Event windowEvent;
+	while (true)
+	{
+		if (SDL_PollEvent(&windowEvent))
+		{
+			if (windowEvent.type == SDL_QUIT) break;
+			if (windowEvent.type == SDL_KEYUP && windowEvent.key.keysym.sym == SDLK_ESCAPE) break;
+		}
+		//updateScene();
+		renderSceneTest();
+	}
+}
+
 /*
  update positions of triangles in the screen changing a translation only
 */
@@ -128,6 +147,7 @@ void renderScene()
 	sprintf(gTitleBuff, "OpenGL - %3.0lf", gLastDelta);
 	renderer->setWinTitle(gTitleBuff);
 }
+
 
 int initialiseTestbench()
 {
@@ -303,10 +323,82 @@ int main(int argc, char *argv[])
 	renderer = Renderer::makeRenderer(Renderer::BACKEND::DX12);
 	//renderer = Renderer::makeRenderer(Renderer::BACKEND::GL45);
 	renderer->initialize(800,600);
-	//renderer->setWinTitle("Dx12");
+	renderer->setWinTitle("Dx12");
 	renderer->setClearColor(0.0, 0.1, 0.1, 1.0);
-	initialiseTestbench();
-	run();
+	//initialiseTestbench();
+	//run();
+	
+
+	initTest();
+	runTest();
+	
+	
+	
 	//shutdown();
 	return 0;
 };
+
+
+void initTest()
+{
+	// triangle geometry:
+	float4 triPos[3] = { 
+		{ 0.0f,  0.05, 0.0f, 1.0f },
+		{ 0.05, -0.05, 0.0f, 1.0f },
+		{ -0.05, -0.05, 0.0f, 1.0f } 
+	};
+	float4 triNor[3] = { { 0.0f,  0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f } };
+	float2 triUV[3] = { { 0.5f,  -0.99f },{ 1.49f, 1.1f },{ -0.51, 1.1f } };
+
+
+	// pre-allocate one single vertex buffer for ALL triangles
+	pos = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triPos), VertexBuffer::DATA_USAGE::STATIC);
+	nor = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triNor), VertexBuffer::DATA_USAGE::STATIC);
+	uvs = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triUV), VertexBuffer::DATA_USAGE::STATIC);
+
+
+	// Create a mesh array with 3 basic vertex buffers.
+	for (int i = 0; i < TOTAL_TRIS; i++) {
+
+		Mesh* m = renderer->makeMesh();
+
+		constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value;
+		size_t offset = i * sizeof(triPos);
+		pos->setData(triPos, sizeof(triPos), offset);
+		m->addIAVertexBufferBinding(
+			pos, 
+			offset, 
+			numberOfPosElements, 
+			sizeof(float4), 
+			POSITION);
+
+		constexpr auto numberOfNorElements = std::extent<decltype(triNor)>::value;
+		offset = i * sizeof(triNor);
+		nor->setData(triNor, sizeof(triNor), offset);
+		m->addIAVertexBufferBinding(nor, offset, numberOfNorElements, sizeof(float4), NORMAL);
+
+		constexpr auto numberOfUVElements = std::extent<decltype(triUV)>::value;
+		offset = i * sizeof(triUV);
+		uvs->setData(triUV, sizeof(triUV), offset);
+		m->addIAVertexBufferBinding(uvs, offset, numberOfUVElements, sizeof(float2), TEXTCOORD);
+
+		// we can create a constant buffer outside the material, for example as part of the Mesh.
+		//m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
+
+		//m->technique = techniques[i % 4];
+		//if (i % 4 == 2)
+			//m->addTexture(textures[0], DIFFUSE_SLOT);
+
+		scene.push_back(m);
+	}
+
+}
+
+void renderSceneTest()
+{
+	for (auto m : scene)
+	{
+		renderer->submit(m);
+	}
+	renderer->frame();
+}
