@@ -1,10 +1,12 @@
 #include "Dx12Renderer.h"
 #include "MaterialDx12.h"
+#include "ConstantBufferDx12.h"
 #include "../Tools.h"
+#include "../OpenGL/MeshGL.h"
 
 dxRenderer::dxRenderer()
 {
-
+	this->samplerCount = 0;
 }
 
 dxRenderer::~dxRenderer()
@@ -16,44 +18,44 @@ Material * dxRenderer::makeMaterial(const std::string & name)
 
 	//new MaterialDx12(name);
 
-	return new MaterialDx12(name);
+	return new MaterialDx12(name, this);
 }
 
 Mesh * dxRenderer::makeMesh()
 {
-	return nullptr;
+	return new MeshGL();
 }
 
 VertexBuffer * dxRenderer::makeVertexBuffer(size_t size, VertexBuffer::DATA_USAGE usage)
 {
-	return nullptr;
+	return new VertexBufferDx12(size, usage, this);
 }
 
 ConstantBuffer * dxRenderer::makeConstantBuffer(std::string NAME, unsigned int location)
 {
-
-
-	return nullptr;
+	return new ConstantBufferDx12(NAME, location);
 }
 
 RenderState * dxRenderer::makeRenderState()
 {
-	return nullptr;
+	return new RenderStateDx12;
 }
 
 Technique * dxRenderer::makeTechnique(Material * m, RenderState * r)
 {
-	return nullptr;
+	return new Technique(m,r);
 }
 
 Texture2D * dxRenderer::makeTexture2D()
 {
-	return nullptr;
+	return new Texture2DDx12(this);
 }
 
 Sampler2D * dxRenderer::makeSampler2D()
 {
-	return nullptr;
+	if (this->samplerCount >= NUM_SAMPLERS) return nullptr;
+
+	return new Sampler2DDx12(this, this->samplerCount++);
 }
 
 std::string dxRenderer::getShaderPath()
@@ -76,7 +78,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 		exit(-1);
 	}
 
-	window = SDL_CreateWindow("temp", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_RESIZABLE);
+	window = SDL_CreateWindow("Dx12", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_RESIZABLE);
 	
 	SDL_SysWMinfo wmInfo;
 	SDL_VERSION(&wmInfo.version);
@@ -99,7 +101,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	IDXGIFactory6*	factory6 = nullptr;
 	IDXGIAdapter1*	adapter = nullptr;
 	//First a factory is created to iterate through the adapters available.
-	CreateDXGIFactory(IID_PPV_ARGS(&factory6));
+	HRESULT hr = CreateDXGIFactory(IID_PPV_ARGS(&factory6));
 	for (UINT adapterIndex = 0;; ++adapterIndex)
 	{
 		adapter = nullptr;
@@ -109,7 +111,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 		}
 
 		// Check to see if the adapter supports Direct3D 12, but don't create the actual device yet.
-		if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device5), nullptr)))
+		if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device4), nullptr)))
 		{
 			break;
 		}
@@ -188,9 +190,12 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	SafeRelease(&factory5);
 	SafeRelease(&swapChain1);
 
-	// Here goes fence if we need it later
+	// -------------------- Fence
 
-
+	this->device4->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	this->fenceValue = 1;
+	//Create an event handle to use for GPU synchronization.
+	this->eventHandle = CreateEvent(0, false, false, 0);
 
 	// -------------------- Rendertarget
 
@@ -234,10 +239,10 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	heapDescriptorDesc.NumDescriptors = NUM_CONST_BUFFERS;
 	heapDescriptorDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	heapDescriptorDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	device4->CreateDescriptorHeap(&heapDescriptorDesc, IID_PPV_ARGS(&descriptorHeap[CONST_DESC_HEAP_INDEX]));
+	device4->CreateDescriptorHeap(&heapDescriptorDesc, IID_PPV_ARGS(&descriptorHeapConstBuffers));
 
 	UINT constBuffersSize = device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	D3D12_CPU_DESCRIPTOR_HANDLE cdh2 = descriptorHeap[CONST_DESC_HEAP_INDEX]->GetCPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE cdh2 = descriptorHeapConstBuffers->GetCPUDescriptorHandleForHeapStart();
 
 	UINT cbSizeAligned = (sizeof(ConstantBuffer) + 255) & ~255;	// 256-byte aligned CB.
 
@@ -276,16 +281,92 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 		cbvDesc.SizeInBytes = cbSizeAligned;
 		device4->CreateConstantBufferView(&cbvDesc, cdh2);
 
-		cdh.ptr += constBuffersSize;
+		cdh2.ptr += constBuffersSize;
 	}
 
-	// ---------------- Root signature?
+	// ---------------- Create Sampler
+
+	D3D12_DESCRIPTOR_HEAP_DESC heapDescriptorDescSampler = {};
+	heapDescriptorDescSampler.NumDescriptors = NUM_SAMPLERS;
+	heapDescriptorDescSampler.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	heapDescriptorDescSampler.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+	device4->CreateDescriptorHeap(&heapDescriptorDescSampler, IID_PPV_ARGS(&descriptorHeapSampler));
+
+	/*UINT SamplerSize = device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+	D3D12_CPU_DESCRIPTOR_HANDLE cdh3 = descriptorHeap[SAMPLER_DESC_HEAP_INDEX]->GetCPUDescriptorHandleForHeapStart();
+*/
+	// ---------------- Root signature
+
+	//define descriptor range(s)
+	D3D12_DESCRIPTOR_RANGE  dtRangesCBV[1];
+	dtRangesCBV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	dtRangesCBV[0].NumDescriptors = NUM_CONST_BUFFERS; //only one CB in this example
+	dtRangesCBV[0].BaseShaderRegister = 0; //register b0
+	dtRangesCBV[0].RegisterSpace = 0; //register(b0,space0);
+	dtRangesCBV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//create a descriptor table
+	D3D12_ROOT_DESCRIPTOR_TABLE dtCBV;
+	dtCBV.NumDescriptorRanges = ARRAYSIZE(dtRangesCBV);
+	dtCBV.pDescriptorRanges = dtRangesCBV;
+
+	//define descriptor range(s)
+	D3D12_DESCRIPTOR_RANGE  dtRangesSRV[1];
+	dtRangesSRV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	dtRangesSRV[0].NumDescriptors = NUM_SRV; 
+	dtRangesSRV[0].BaseShaderRegister = 0; //register t0
+	dtRangesSRV[0].RegisterSpace = 1; //register(t0,space1);
+	dtRangesSRV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//create a descriptor table
+	D3D12_ROOT_DESCRIPTOR_TABLE dtSRV;
+	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
+	dtSRV.pDescriptorRanges = dtRangesSRV;
+
+
+
+	//create root parameter
+	D3D12_ROOT_PARAMETER  rootParam[2];
+	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[0].DescriptorTable = dtCBV;
+	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[1].DescriptorTable = dtSRV;
+	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	D3D12_ROOT_SIGNATURE_DESC rsDesc;
+	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rsDesc.NumParameters = ARRAYSIZE(rootParam);
+	rsDesc.pParameters = rootParam;
+	rsDesc.NumStaticSamplers = 0;
+	rsDesc.pStaticSamplers = nullptr;
+
+	ID3DBlob* sBlob;
+	D3D12SerializeRootSignature(
+		&rsDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&sBlob,
+		nullptr);
+
+	device4->CreateRootSignature(
+		0,
+		sBlob->GetBufferPointer(),
+		sBlob->GetBufferSize(),
+		IID_PPV_ARGS(&rootSignature));
+
+
+	// --------------------- 
+
+	
+
 
 	return 0;
 }
 
 void dxRenderer::setWinTitle(const char * title)
 {
+	
 }
 
 int dxRenderer::shutdown()
@@ -293,26 +374,140 @@ int dxRenderer::shutdown()
 	return 0;
 }
 
-void dxRenderer::setClearColor(float, float, float, float)
+void dxRenderer::setClearColor(float r, float g, float b, float a)
 {
+	this->clearColor[0] = r;
+	this->clearColor[1] = g;
+	this->clearColor[2] = b;
+	this->clearColor[3] = a;
 }
 
-void dxRenderer::clearBuffer(unsigned int)
+void SetResourceTransitionBarrier(ID3D12GraphicsCommandList* commandList, ID3D12Resource* resource,
+	D3D12_RESOURCE_STATES StateBefore, D3D12_RESOURCE_STATES StateAfter)
 {
+	D3D12_RESOURCE_BARRIER barrierDesc = {};
+
+	barrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrierDesc.Transition.pResource = resource;
+	barrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrierDesc.Transition.StateBefore = StateBefore;
+	barrierDesc.Transition.StateAfter = StateAfter;
+
+	commandList->ResourceBarrier(1, &barrierDesc);
+}
+
+void dxRenderer::clearBuffer(unsigned int option)
+{
+
+	//Command list allocators can only be reset when the associated command lists have
+	//finished execution on the GPU; fences are used to ensure this (See WaitForGpu method)
+	commandAllocator->Reset();
+	commandList4->Reset(commandAllocator, NULL);
+
+
+	//Indicate that the back buffer will be used as render target.
+	SetResourceTransitionBarrier(
+		this->commandList4,
+		this->renderTargets[this->swapChain4->GetCurrentBackBufferIndex()],
+		D3D12_RESOURCE_STATE_PRESENT,		//state before
+		D3D12_RESOURCE_STATE_RENDER_TARGET	//state after
+	);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE cdh = this->renderTargetsHeap->GetCPUDescriptorHandleForHeapStart();
+	cdh.ptr += this->renderTargetDescriptorSize * this->swapChain4->GetCurrentBackBufferIndex();
+
+	if (3 == option)
+	{
+		this->commandList4->ClearRenderTargetView(cdh, clearColor, 0, nullptr);
+	}
 }
 
 void dxRenderer::setRenderState(RenderState * ps)
 {
+
 }
 
 void dxRenderer::submit(Mesh * mesh)
 {
+	drawList.push_back(mesh);
 }
 
 void dxRenderer::frame()
 {
+
+	UINT backBufferIndex = this->swapChain4->GetCurrentBackBufferIndex();
+
+	//Set constant buffer descriptor heap
+	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeapConstBuffers };
+	//ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeap[backBufferIndex] };
+	this->commandList4->SetDescriptorHeaps(ARRAYSIZE(descriptorHeaps), descriptorHeaps);
+
+	this->commandList4->SetGraphicsRootSignature(this->rootSignature);
+	
+	//Set root descriptor table to index 0 in previously set root signature
+	this->commandList4->SetGraphicsRootDescriptorTable(
+		0,
+		descriptorHeapConstBuffers->GetGPUDescriptorHandleForHeapStart());
+
+	//Set necessary states.
+	this->commandList4->RSSetViewports(1, &this->viewport);
+	this->commandList4->RSSetScissorRects(1, &this->scissorRect);
+
+	
+
+	D3D12_CPU_DESCRIPTOR_HANDLE cdh = this->renderTargetsHeap->GetCPUDescriptorHandleForHeapStart();
+	cdh.ptr += this->renderTargetDescriptorSize * backBufferIndex;
+
+	this->commandList4->OMSetRenderTargets(1, &cdh, true, nullptr);
+	this->commandList4->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	int i = 0;
+	for (Mesh* mesh : drawList)
+	{
+		mesh->technique->enable(this);
+		for (auto element : mesh->geometryBuffers) {
+			mesh->bindIAVertexBuffer(element.first);
+		}
+	}
+	this->commandList4->DrawInstanced(3, 1, 0, 0);
+
+	//Indicate that the back buffer will be used as render target.
+	SetResourceTransitionBarrier(
+		this->commandList4,
+		this->renderTargets[backBufferIndex],
+		D3D12_RESOURCE_STATE_RENDER_TARGET,	//flipped
+		D3D12_RESOURCE_STATE_PRESENT		
+	);
+
+	this->commandList4->Close();
+
+	ID3D12CommandList* listsToExecute[] = { commandList4 };
+	this->commandQueue->ExecuteCommandLists(ARRAYSIZE(listsToExecute), listsToExecute);
 }
 
 void dxRenderer::present()
 {
+
+	//Present the frame.
+	DXGI_PRESENT_PARAMETERS pp = {};
+	this->swapChain4->Present1(1, 0, &pp);
+	this->drawList.clear();
+
+	this->wait4GPU();
+	
+}
+
+void dxRenderer::wait4GPU()
+{
+	//Signal and increment the fence value.
+	const UINT64 fence = fenceValue;
+	commandQueue->Signal(this->fence, fence);
+	fenceValue++;
+
+	//Wait until command queue is done.
+	if (this->fence->GetCompletedValue() < fence)
+	{
+		this->fence->SetEventOnCompletion(fence, eventHandle);
+		WaitForSingleObject(eventHandle, INFINITE);
+	}
 }
