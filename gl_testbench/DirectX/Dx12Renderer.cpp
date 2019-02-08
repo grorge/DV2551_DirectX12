@@ -512,7 +512,6 @@ void dxRenderer::clearBuffer(unsigned int option)
 	commandList4->Reset(commandAllocator, NULL);
 
 
-
 	//Indicate that the back buffer will be used as render target.
 	SetResourceTransitionBarrier(
 		this->commandList4,

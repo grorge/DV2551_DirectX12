@@ -24,6 +24,7 @@ vector<Texture2D*> textures;
 vector<Sampler2D*> samplers;
 
 VertexBuffer* pos;
+VertexBuffer* pos2;
 VertexBuffer* nor;
 VertexBuffer* uvs;
 
@@ -344,44 +345,75 @@ void initTest()
 		{ 0.05, -0.05, 0.0f, 1.0f },
 		{ -0.05, -0.05, 0.0f, 1.0f } 
 	};
+	float4 triPos2[3] = { 
+		{ 0.0f,  0.5, 0.0f, 1.0f },
+		{ 0.5, -0.5, 0.0f, 1.0f },
+		{ -0.5, -0.5, 0.0f, 1.0f } 
+	};
 	//float4 triNor[3] = { { 0.0f,  0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f, 0.0f } };
 	//float2 triUV[3] = { { 0.5f,  -0.99f },{ 1.49f, 1.1f },{ -0.51, 1.1f } };
 
 	// pre-allocate one single vertex buffer for ALL triangles
-	pos = renderer->makeVertexBuffer(sizeof(triPos), VertexBuffer::DATA_USAGE::STATIC);
 	//nor = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triNor), VertexBuffer::DATA_USAGE::STATIC);
 	//uvs = renderer->makeVertexBuffer(TOTAL_TRIS * sizeof(triUV), VertexBuffer::DATA_USAGE::STATIC);
 	
-	Mesh* m = renderer->makeMesh();
 
+	Mesh* m1;
+	Mesh* m2;
 	constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value; // total amount of elements in pos
 	size_t offset = 0 * sizeof(triPos);
-	pos->setData(triPos, sizeof(triPos), offset);
-	m->addIAVertexBufferBinding(
-		pos,
-		offset,
-		numberOfPosElements,
-		sizeof(float4),
-		POSITION);
 
-	m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
 
-	scene.push_back(m);
-	
-	m = renderer->makeMesh();
 
-	offset = 1 * sizeof(triPos);
-	pos->setData(triPos, sizeof(triPos), offset);
-	m->addIAVertexBufferBinding(
-		pos,
-		offset,
-		numberOfPosElements,
-		sizeof(float4),
-		POSITION);
+	//pos2 = renderer->makeVertexBuffer(sizeof(triPos2), VertexBuffer::DATA_USAGE::STATIC);
+	//m2 = renderer->makeMesh();
+	//pos2->setData(triPos2, sizeof(triPos), offset);
+	//m2->addIAVertexBufferBinding(
+	//	pos2,
+	//	offset,
+	//	numberOfPosElements,
+	//	sizeof(float4),
+	//	POSITION);
+	//m2->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
+	//scene.push_back(m2);	
 
-	m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
 
-	scene.push_back(m);
+	//pos = renderer->makeVertexBuffer(sizeof(triPos), VertexBuffer::DATA_USAGE::STATIC);
+	//m1 = renderer->makeMesh();
+	//pos->setData(triPos, sizeof(triPos), offset);
+	//m1->addIAVertexBufferBinding(
+	//	pos,
+	//	offset,
+	//	numberOfPosElements,
+	//	sizeof(float4),
+	//	POSITION);
+	//m1->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
+	//scene.push_back(m1);
+
+	for (int i = 0; i < TOTAL_TRIS; i++) {
+
+			pos = renderer->makeVertexBuffer(sizeof(triPos), VertexBuffer::DATA_USAGE::STATIC);
+			Mesh* m = renderer->makeMesh();
+
+			triPos->y += 0.01f;
+			triPos->x += 0.01f;
+
+			constexpr auto numberOfPosElements1 = std::extent<decltype(triPos)>::value; // total amount of elements in pos
+			size_t offset1 = 0 * sizeof(triPos);
+			pos->setData(triPos, sizeof(triPos), offset1);
+			m->addIAVertexBufferBinding(
+				pos, 
+				offset1, 
+				numberOfPosElements1, 
+				sizeof(float4), 
+				POSITION);
+						
+			// we can create a constant buffer outside the material, for example as part of the Mesh.
+			m->txBuffer = renderer->makeConstantBuffer(std::string(TRANSLATION_NAME), TRANSLATION);
+
+
+			scene.push_back(m);
+		}
 
 	// Create a mesh array with 3 basic vertex buffers.
 	//for (int i = 0; i < TOTAL_TRIS; i++) {
