@@ -4,6 +4,7 @@
 #include <vector>
 #include <Windows.h>
 #include "D3D12Header.h"
+#include "ConstantBufferDx12.h"
 
 
 
@@ -39,6 +40,8 @@ class dxRenderer;
 //OUT=std::string(buff);\
 //}
 
+#define NUM_CONST_BUFFER 1
+
 class MaterialDx12 :
 	public Material
 {
@@ -46,7 +49,7 @@ class MaterialDx12 :
 
 public:
 	MaterialDx12(const std::string& name);
-	MaterialDx12(const std::string& name, dxRenderer* rnd);
+	MaterialDx12(const std::string& name, dxRenderer* rnd, int id);
 	~MaterialDx12();
 
 
@@ -63,6 +66,9 @@ public:
 	// slower version using a string
 	void addConstantBuffer(std::string name, unsigned int location);
 	//std::map<unsigned int, ConstantBufferGL*> constantBuffers;
+
+	int id();
+	void* constantBufferData(int location);
 
 private:
 	// map from ShaderType to GL_VERTEX_SHADER, should be static.
@@ -86,5 +92,7 @@ private:
 
 	ID3D12PipelineState* pipeLineState;
 
+	ConstantBufferDx12* buffer[NUM_CONST_BUFFER];
 	dxRenderer* rnd = nullptr;
+	int identification;
 };

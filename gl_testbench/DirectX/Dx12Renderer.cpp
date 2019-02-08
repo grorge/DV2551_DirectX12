@@ -2,11 +2,12 @@
 #include "MaterialDx12.h"
 #include "ConstantBufferDx12.h"
 #include "../Tools.h"
-#include "../OpenGL/MeshGL.h"
+#include "MeshDx12.h"
 
 dxRenderer::dxRenderer()
 {
 	this->samplerCount = 0;
+	this->materialCount = 0;
 }
 
 dxRenderer::~dxRenderer()
@@ -15,15 +16,14 @@ dxRenderer::~dxRenderer()
 
 Material * dxRenderer::makeMaterial(const std::string & name)
 {
-
 	//new MaterialDx12(name);
 
-	return new MaterialDx12(name, this);
+	return new MaterialDx12(name, this, this->materialCount++);
 }
 
 Mesh * dxRenderer::makeMesh()
 {
-	return new MeshGL();
+	return new MeshDx12();
 }
 
 VertexBuffer * dxRenderer::makeVertexBuffer(size_t size, VertexBuffer::DATA_USAGE usage)
@@ -244,7 +244,8 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	UINT constBuffersSize = device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	D3D12_CPU_DESCRIPTOR_HANDLE cdh2 = descriptorHeapConstBuffers->GetCPUDescriptorHandleForHeapStart();
 
-	UINT cbSizeAligned = (sizeof(ConstantBuffer) + 255) & ~255;	// 256-byte aligned CB.
+	UINT align = 32 * 64;
+	UINT cbSizeAligned = align;// (sizeof(/*TOTAL_TRIS*/100 * 4 * sizeof(float)) + align) & ~align;	// 256-byte aligned CB.
 
 	D3D12_HEAP_PROPERTIES heapProperties = {};
 	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -292,18 +293,28 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	heapDescriptorDescSampler.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
 	device4->CreateDescriptorHeap(&heapDescriptorDescSampler, IID_PPV_ARGS(&descriptorHeapSampler));
 
-	/*UINT SamplerSize = device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+	/*
+	UINT SamplerSize = device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 	D3D12_CPU_DESCRIPTOR_HANDLE cdh3 = descriptorHeap[SAMPLER_DESC_HEAP_INDEX]->GetCPUDescriptorHandleForHeapStart();
-*/
+	*/
+
 	// ---------------- Root signature
 
 	//define descriptor range(s)
-	D3D12_DESCRIPTOR_RANGE  dtRangesCBV[1];
+	D3D12_DESCRIPTOR_RANGE  dtRangesCBV[2];
 	dtRangesCBV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	dtRangesCBV[0].NumDescriptors = NUM_CONST_BUFFERS; //only one CB in this example
+	dtRangesCBV[0].NumDescriptors = 1;
 	dtRangesCBV[0].BaseShaderRegister = 0; //register b0
 	dtRangesCBV[0].RegisterSpace = 0; //register(b0,space0);
 	dtRangesCBV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+
+	dtRangesCBV[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	dtRangesCBV[1].NumDescriptors = 1;
+	dtRangesCBV[1].BaseShaderRegister = 1; //register b1
+	dtRangesCBV[1].RegisterSpace = 0; //register(b1,space0);
+	dtRangesCBV[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 
 	//create a descriptor table
 	D3D12_ROOT_DESCRIPTOR_TABLE dtCBV;
@@ -315,7 +326,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	dtRangesSRV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	dtRangesSRV[0].NumDescriptors = NUM_SRV; 
 	dtRangesSRV[0].BaseShaderRegister = 0; //register t0
-	dtRangesSRV[0].RegisterSpace = 1; //register(t0,space1);
+	dtRangesSRV[0].RegisterSpace = 0; //register(t0,space1);
 	dtRangesSRV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//create a descriptor table
@@ -366,7 +377,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 
 void dxRenderer::setWinTitle(const char * title)
 {
-	
+	SDL_SetWindowTitle(this->window, title);
 }
 
 int dxRenderer::shutdown()
@@ -429,7 +440,29 @@ void dxRenderer::setRenderState(RenderState * ps)
 
 void dxRenderer::submit(Mesh * mesh)
 {
-	drawList.push_back(mesh);
+	//drawList.push_back(mesh);
+
+	switch (static_cast<MaterialDx12*>(mesh->technique->getMaterial())->id())
+	{
+	case 0:
+		dl0.push_back(mesh);
+		break;
+
+	case 1:
+		dl1.push_back(mesh);
+		break;
+
+	case 2:
+		dl2.push_back(mesh);
+		break;
+
+	case 3:
+		dl3.push_back(mesh);
+		break;
+
+	default:
+		break;
+	}
 }
 
 void dxRenderer::frame()
@@ -461,15 +494,131 @@ void dxRenderer::frame()
 	this->commandList4->OMSetRenderTargets(1, &cdh, true, nullptr);
 	this->commandList4->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	size_t count = dl0.size() + dl1.size() + dl2.size() + dl3.size();
+	UINT byteWidth = sizeof(float) * 4;
+	void* translationData	= malloc(byteWidth * count);
+	void* colorData			= malloc(byteWidth * count);
 	int i = 0;
-	for (Mesh* mesh : drawList)
+
+	UINT offset;
+	for (Mesh* mesh : dl0)
 	{
+		offset = i * byteWidth;
 		mesh->technique->enable(this);
+
+		ConstantBufferDx12 *translationBuffer = 
+			static_cast<ConstantBufferDx12*>(mesh->txBuffer);
+
+		memcpy(static_cast<char*>(translationData) + offset,
+			translationBuffer->data(), byteWidth);
+
+		MaterialDx12 *material =
+			static_cast<MaterialDx12*>(mesh->technique->getMaterial());
+
+		memcpy(static_cast<char*>(colorData) + offset,
+			material->constantBufferData(0), byteWidth);
+
 		for (auto element : mesh->geometryBuffers) {
 			mesh->bindIAVertexBuffer(element.first);
 		}
+
+		i++;
 	}
-	this->commandList4->DrawInstanced(300, 1, 0, 0);
+
+	for (Mesh* mesh : dl1)
+	{
+		offset = i * byteWidth;
+		mesh->technique->enable(this);
+
+		ConstantBufferDx12 *translationBuffer =
+			static_cast<ConstantBufferDx12*>(mesh->txBuffer);
+
+		memcpy(static_cast<char*>(translationData) + offset,
+			translationBuffer->data(), byteWidth);
+
+		MaterialDx12 *material =
+			static_cast<MaterialDx12*>(mesh->technique->getMaterial());
+
+		memcpy(static_cast<char*>(colorData) + offset,
+			material->constantBufferData(0), byteWidth);
+
+		for (auto element : mesh->geometryBuffers) {
+			mesh->bindIAVertexBuffer(element.first);
+		}
+
+		i++;
+	}
+
+	for (Mesh* mesh : dl2)
+	{
+		offset = i * byteWidth;
+		mesh->technique->enable(this);
+
+		ConstantBufferDx12 *translationBuffer =
+			static_cast<ConstantBufferDx12*>(mesh->txBuffer);
+
+		memcpy(static_cast<char*>(translationData) + offset,
+			translationBuffer->data(), byteWidth);
+
+		MaterialDx12 *material =
+			static_cast<MaterialDx12*>(mesh->technique->getMaterial());
+
+		memcpy(static_cast<char*>(colorData) + offset,
+			material->constantBufferData(0), byteWidth);
+
+		for (auto element : mesh->geometryBuffers) {
+			mesh->bindIAVertexBuffer(element.first);
+		}
+
+		i++;
+	}
+
+	for (Mesh* mesh : dl3)
+	{
+		offset = i * byteWidth;
+		mesh->technique->enable(this);
+
+		ConstantBufferDx12 *translationBuffer =
+			static_cast<ConstantBufferDx12*>(mesh->txBuffer);
+
+		memcpy(static_cast<char*>(translationData) + offset,
+			translationBuffer->data(), byteWidth);
+
+		MaterialDx12 *material =
+			static_cast<MaterialDx12*>(mesh->technique->getMaterial());
+
+		memcpy(static_cast<char*>(colorData) + offset,
+			material->constantBufferData(0), byteWidth);
+
+		for (auto element : mesh->geometryBuffers) {
+			mesh->bindIAVertexBuffer(element.first);
+		}
+
+		i++;
+	}
+
+	//Update GPU memory
+	void* mappedMem = nullptr;
+	D3D12_RANGE writeRange = { 0, byteWidth * count };
+	this->constantBufferResource[CONST_BUFFER_TRANSLATION]->Map(0, nullptr, &mappedMem);
+	memcpy(mappedMem, translationData, byteWidth * count);
+	this->constantBufferResource[CONST_BUFFER_TRANSLATION]->Unmap(0, &writeRange);
+
+	this->constantBufferResource[CONST_BUFFER_COLOR]->Map(0, nullptr, &mappedMem);
+	memcpy(mappedMem, colorData, byteWidth * count);
+	this->constantBufferResource[CONST_BUFFER_COLOR]->Unmap(0, &writeRange);
+
+
+	this->commandList4->DrawInstanced(3, (UINT)i, 0, 0);
+
+	// apply shader 0
+	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
+	//// apply shader 1
+	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
+	//// apply shader 2
+	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
+	//// apply shader 3
+	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
 
 	//Indicate that the back buffer will be used as render target.
 	SetResourceTransitionBarrier(
@@ -483,18 +632,21 @@ void dxRenderer::frame()
 
 	ID3D12CommandList* listsToExecute[] = { commandList4 };
 	this->commandQueue->ExecuteCommandLists(ARRAYSIZE(listsToExecute), listsToExecute);
+
+	free(translationData);
 }
 
 void dxRenderer::present()
 {
-
 	//Present the frame.
 	DXGI_PRESENT_PARAMETERS pp = {};
 	this->swapChain4->Present1(1, 0, &pp);
-	this->drawList.clear();
+	this->dl0.clear();
+	this->dl1.clear();
+	this->dl2.clear();
+	this->dl3.clear();
 
-	this->wait4GPU();
-	
+	this->wait4GPU();	
 }
 
 void dxRenderer::wait4GPU()

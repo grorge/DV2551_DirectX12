@@ -26,7 +26,7 @@ void main () {
 	vec4 col = vec4(1.0,1.0,1.0, 1.0);
 	#endif
 
-	fragment_color = col * vec4(diffuseTint.rgb,1.0);
+	fragment_color = col * vec4(diffuseTint.rgb, 1.0);
 
 	return;
 	

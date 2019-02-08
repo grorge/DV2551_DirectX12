@@ -43,7 +43,7 @@ VertexBufferDx12::VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage, 
 
 	this->resource->SetName(L"vb heap"); 
 
-	this->resourceView.SizeInBytes		= this->totalSize;
+	this->resourceView.SizeInBytes		= (UINT)this->totalSize;
 	this->resourceView.BufferLocation	= this->resource->GetGPUVirtualAddress();
 }
 
@@ -53,7 +53,7 @@ VertexBufferDx12::~VertexBufferDx12()
 
 void VertexBufferDx12::setData(const void * data, size_t size, size_t offset)
 {
-	this->resourceView.StrideInBytes = size / 3;
+	this->resourceView.StrideInBytes = (UINT)size / 3;
 	memcpy(static_cast<char*>(this->data) + offset, data, size);
 
 	// Read - Copy - Write

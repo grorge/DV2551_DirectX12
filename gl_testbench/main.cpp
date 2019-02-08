@@ -108,9 +108,11 @@ void updateScene()
 			};
 			scene[i]->txBuffer->setData(&trans, sizeof(trans), scene[i]->technique->getMaterial(), TRANSLATION);
 		}
+
 		// just to make them move...
-		shift+=max(TOTAL_TRIS / 1000.0,TOTAL_TRIS / 100.0);
+		shift += max(TOTAL_TRIS / 1000.0, TOTAL_TRIS / 100.0);
 	}
+
 	return;
 };
 
@@ -178,10 +180,13 @@ int initialiseTestbench()
 	std::string shaderPath = renderer->getShaderPath();
 	std::string shaderExtension = renderer->getShaderExtension();
 	float diffuse[4][4] = {
-		0.0,0.0,1.0,1.0,
-		0.0,1.0,0.0,1.0,
-		1.0,1.0,1.0,1.0,
-		1.0,0.0,0.0,1.0
+		0.0, 0.0, 1.0, 1.0,
+
+		0.0, 1.0, 0.0, 1.0,
+
+		1.0, 1.0, 1.0, 1.0,
+
+		1.0, 0.0, 0.0, 1.0
 	};
 
 	for (int i = 0; i < materialDefs.size(); i++)
@@ -237,7 +242,8 @@ int initialiseTestbench()
 
 		Mesh* m = renderer->makeMesh();
 
-		/*triPos[0].x += 0.005f;
+		/*
+		triPos[0].x += 0.005f;
 		triPos[0].y += 0.005f;
 		triPos[0].z += 0.005f;
 
@@ -247,7 +253,8 @@ int initialiseTestbench()
 
 		triPos[2].x += 0.005f;
 		triPos[2].y += 0.005f;
-		triPos[2].z += 0.005f;*/
+		triPos[2].z += 0.005f;
+		*/
 
 		constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value;
 		size_t offset = i * sizeof(triPos);
@@ -312,7 +319,7 @@ void shutdown() {
 
 int main(int argc, char *argv[])
 {
-	renderer = Renderer::makeRenderer(Renderer::BACKEND::DX12);
+	renderer = Renderer::makeRenderer(Renderer::BACKEND::GL45);
 	//renderer = Renderer::makeRenderer(Renderer::BACKEND::GL45);
 	renderer->initialize(800,600);
 	//renderer->setWinTitle("Dx12");

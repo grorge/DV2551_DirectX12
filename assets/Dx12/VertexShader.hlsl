@@ -9,26 +9,32 @@ struct VSOut
 {
 	float4 pos		: SV_POSITION;
 	float4 nor		: NORMAL;
+	float4 color	: COLOR;
 	float2 uv		: TEXCOORD;
 };
 
-cbuffer CB : register(b0)
+cbuffer descriptorHeapConstantBuffer1 : register (b0)
 {
-	float R, G, B, A;
+	float4 translate[512];	// buffer 1
+}
+
+cbuffer descriptorHeapConstantBuffer2 : register (b1)
+{
+	float4 color[512];	// buffer 1
 }
 
 VSOut main(
 	float4 position : POSITION,
 	float4 normal	: NORMAL,
 	float2 uv		: TEXCOORD,
-	uint index		: SV_VertexID,
+	uint vertex		: SV_VertexID,
 	uint instance	: SV_InstanceID)
 {
-	VSOut output = (VSOut)0;
-	output.pos	= position;
-	output.nor	= normal;
-	output.uv	= uv;
-	//output.color = float4(R, G, B, A);
+	VSOut output	= (VSOut)0;
+	output.pos		= position + translate[instance];
+	output.nor		= normal;
+	output.uv		= uv;
+	output.color	= color[instance];
 
 	return output;
 }

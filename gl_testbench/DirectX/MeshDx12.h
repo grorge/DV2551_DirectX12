@@ -9,7 +9,6 @@ public:
 	~MeshDx12();
 
 private:
-
 };
 
 MeshDx12::MeshDx12()

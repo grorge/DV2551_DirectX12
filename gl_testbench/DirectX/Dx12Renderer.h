@@ -20,13 +20,16 @@
 
 
 #define NUM_SWAP_BUFFERS 3
-#define NUM_CONST_BUFFERS 16
-#define NUM_SRV 4
-#define NUM_SAMPLERS 4
+#define NUM_CONST_BUFFERS 6
+#define NUM_SRV 1
+#define NUM_SAMPLERS 1
 
 #define NUM_DESCRIPTOR_HEAPS 2
-#define CONST_DESC_HEAP_INDEX 0
+#define CONST_BUFFER_DESC_HEAP_INDEX 0
 #define SAMPLER_DESC_HEAP_INDEX 1
+
+#define CONST_BUFFER_TRANSLATION 0
+#define CONST_BUFFER_COLOR 1
 
 //struct ConstantBuffer
 //{
@@ -77,6 +80,12 @@ private:
 
 	std::vector<Mesh*> drawList;
 	std::unordered_map<Technique*, std::vector<Mesh*>> drawList2;
+
+	std::vector<Mesh*> dl0;
+	std::vector<Mesh*> dl1;
+	std::vector<Mesh*> dl2;
+	std::vector<Mesh*> dl3;
+	int materialCount;
 
 	bool globalWireframeMode = false;
 

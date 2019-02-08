@@ -1,6 +1,8 @@
 #include "MaterialDx12.h"
 #include "Dx12Renderer.h"
 
+#include <iostream>
+
 void MaterialDx12::setShader(const std::string & shaderFileName, ShaderType type)
 {
 	if (shaderFileNames.find(type) != shaderFileNames.end())
@@ -69,7 +71,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 
 	//Specify rasterizer behaviour.
 	gpsd.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	gpsd.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	gpsd.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
 
 	//Specify blend descriptions.
 	D3D12_RENDER_TARGET_BLEND_DESC defaultRTdesc = {
@@ -82,14 +84,6 @@ int MaterialDx12::compileMaterial(std::string & errString)
 
 	rnd->device4->CreateGraphicsPipelineState(&gpsd, IID_PPV_ARGS(&this->pipeLineState));
 
-	//program = glCreateProgram();
-	//glAttachShader(program, shaderObjects[(GLuint)ShaderType::VS]);
-	//glAttachShader(program, shaderObjects[(GLuint)ShaderType::PS]);
-	//glLinkProgram(program);
-
-	//std::string err2;
-	//INFO_OUT(program, Program);
-	//COMPILE_LOG(program, Program, err2);
 	isValid = true;
 	return 0;
 }
@@ -97,6 +91,12 @@ int MaterialDx12::compileMaterial(std::string & errString)
 int MaterialDx12::enable()
 {
 	rnd->commandList4->SetPipelineState(this->pipeLineState);
+
+	/*void* mappedMem = nullptr;
+	this->rnd->constantBufferResource[CONST_BUFFER_COLOR]->Map(0, nullptr, &mappedMem);
+	memcpy(mappedMem, buffer[0]->data(), buffer[0]->size());
+	this->rnd->constantBufferResource[CONST_BUFFER_COLOR]->Unmap(0, nullptr);*/
+
 	//rnd->commandList4->IASetVertexBuffers(0, 1, NULL);
 	return 0;
 }
@@ -111,27 +111,41 @@ void MaterialDx12::setDiffuse(Color c)
 
 void MaterialDx12::updateConstantBuffer(const void * data, size_t size, unsigned int location)
 {
-	//Update GPU memory
-	void* mappedMem = nullptr;
-	D3D12_RANGE readRange = { 0, 0 }; //We do not intend to read this resource on the CPU.
-	if (SUCCEEDED(rnd->constantBufferResource[location]->Map(0, &readRange, &mappedMem)))
-	{
-		memcpy(mappedMem, &data, size);
+	////Update GPU memory
+	/*void* mappedMem = nullptr;
 
-		D3D12_RANGE writeRange = { 0, size };
-		rnd->constantBufferResource[location]->Unmap(0, &writeRange);
-	}
+	this->rnd->constantBufferResource[location]->Map(0, nullptr, &mappedMem);
+	
+	memcpy(mappedMem, &data, size);
+
+	D3D12_RANGE writeRange = { 0, size };
+	this->rnd->constantBufferResource[location]->Unmap(0, &writeRange);*/
+
+	this->buffer[0]->setData(data, size, this, 0);
 }
 
 
 void MaterialDx12::addConstantBuffer(std::string name, unsigned int location)
 {
-	std::wstring stemp = std::wstring(name.begin(), name.end());
+	/*std::wstring stemp = std::wstring(name.begin(), name.end());
 	LPCWSTR sw = stemp.c_str();
 
 	if (location >= NUM_CONST_BUFFERS) return; 
 
-	rnd->constantBufferResource[location]->SetName(sw);
+	rnd->constantBufferResource[location]->SetName(sw);*/
+
+	this->buffer[0] = static_cast<ConstantBufferDx12*>
+		(this->rnd->makeConstantBuffer(name, location));
+}
+
+int MaterialDx12::id()
+{
+	return this->identification;
+}
+
+void * MaterialDx12::constantBufferData(int location)
+{
+	return buffer[location]->data();
 }
 
 int MaterialDx12::compileShader(ShaderType type, std::string & errString)
@@ -145,9 +159,18 @@ int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 		std::cout << myPair.first << "\n";
 	}*/
 
-	std::string s = shaderFileNames[type];
-	std::wstring stemp = std::wstring(s.begin(), s.end());
-	LPCWSTR sw = stemp.c_str();
+	std::string filepath = shaderFileNames[type];
+	std::wstring wFilepath = std::wstring(filepath.begin(), filepath.end());
+	LPCWSTR lpcwFilePath = wFilepath.c_str();
+
+	std::cout << "__ COMPILE SHADER __" << std::endl;
+	for (auto element : this->shaderDefines) {
+		for (auto s : element.second)
+		{
+			std::cout << " WW " << s << std::endl;
+		}
+	}
+
 
 	switch (type)
 	{
@@ -165,7 +188,7 @@ int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 		}*/
 
 		hr = D3DCompileFromFile(
-			sw, // filename
+			lpcwFilePath, // filename
 			macro,		// optional macros
 			nullptr,		// optional include files
 			"main",		// entry point
@@ -180,7 +203,7 @@ int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 		break;
 	case Material::ShaderType::PS:
 		hr = D3DCompileFromFile(
-			sw,				// filename
+			lpcwFilePath,				// filename
 			nullptr,		// optional macros
 			nullptr,		// optional include files
 			"main",		// entry point
@@ -215,9 +238,9 @@ MaterialDx12::MaterialDx12(const std::string & name)
 
 	this->vertexBlob = nullptr;
 	this->pixelBlob = nullptr;
-
 }
-MaterialDx12::MaterialDx12(const std::string & name, dxRenderer* rnd)
+
+MaterialDx12::MaterialDx12(const std::string & name, dxRenderer* rnd, int id)
 {
 	this->name = name;
 
@@ -225,6 +248,8 @@ MaterialDx12::MaterialDx12(const std::string & name, dxRenderer* rnd)
 
 	this->vertexBlob = nullptr;
 	this->pixelBlob = nullptr;
+
+	this->identification = id;
 }
 
 MaterialDx12::~MaterialDx12()
