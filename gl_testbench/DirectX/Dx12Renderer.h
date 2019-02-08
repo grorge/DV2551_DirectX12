@@ -1,20 +1,19 @@
 #pragma once
 
 #include "../Renderer.h"
+#include "RenderStateDx12.h"
+#include "Texture2DDx12.h"
+#include "Sampler2DDx12.h"
+#include "VertexBufferDx12.h"
 
 #include <SDL.h>
 #include <SDL_syswm.h>
+#include <GL/glew.h>
 
 #include <windows.h>
-#include <d3d12.h>
-#include <dxgi1_6.h> //Only used for initialization of the device and swap chain.
-#include <d3dcompiler.h>
+#include "D3D12Header.h"
 
-#pragma comment (lib, "d3d12.lib")
-#pragma comment (lib, "DXGI.lib")
-#pragma comment (lib, "d3dcompiler.lib")
-
-//#pragma comment(lib, "dire")
+////#pragma comment(lib, "dire")
 #pragma comment(lib,"glew32.lib")
 #pragma comment(lib,"SDL2.lib")
 #pragma comment(lib,"SDL2main.lib")
@@ -22,7 +21,12 @@
 
 #define NUM_SWAP_BUFFERS 3
 #define NUM_CONST_BUFFERS 16
+#define NUM_SRV 4
+#define NUM_SAMPLERS 4
+
+#define NUM_DESCRIPTOR_HEAPS 2
 #define CONST_DESC_HEAP_INDEX 0
+#define SAMPLER_DESC_HEAP_INDEX 1
 
 //struct ConstantBuffer
 //{
@@ -31,6 +35,11 @@
 
 class dxRenderer : public Renderer
 {
+	friend class MaterialDx12;
+	friend class Texture2DDx12;
+	friend class Sampler2DDx12;
+	friend class VertexBufferDx12;
+
 public:
 	dxRenderer();
 	~dxRenderer();
@@ -52,8 +61,8 @@ public:
 	void setWinTitle(const char* title);
 	int shutdown();
 
-	void setClearColor(float, float, float, float);
-	void clearBuffer(unsigned int);
+	void setClearColor(float r, float g, float b, float a);
+	void clearBuffer(unsigned int option);
 	//	void setRenderTarget(RenderTarget* rt); // complete parameters
 	void setRenderState(RenderState* ps);
 	void submit(Mesh* mesh);
@@ -89,6 +98,7 @@ private:
 	void CreateTriangleData();									//8. Create vertexdata
 	void CreateRootSignature();
 	void CreateConstantBufferResources();
+	void wait4GPU();
 
 
 	ID3D12Device4*				device4 = nullptr;
@@ -111,15 +121,18 @@ private:
 	D3D12_RECT					scissorRect = {};
 
 	ID3D12RootSignature*		rootSignature;
-	ID3D12PipelineState*		pipeLineState;
 
 	ID3D12Resource1*			vertexBufferResource;
 	D3D12_VERTEX_BUFFER_VIEW	vertexBufferView;
 
 	//Stefans cBuffers
-	ID3D12DescriptorHeap*		descriptorHeap[NUM_CONST_BUFFERS] = {};
+	ID3D12DescriptorHeap*		descriptorHeapConstBuffers = {};
+	ID3D12DescriptorHeap*		descriptorHeapSampler = {};
 	ID3D12Resource1*			constantBufferResource[NUM_CONST_BUFFERS] = {};
 	//ConstantBuffer			gConstantBufferCPU = {};
 
+	//ID3D12PipelineState*		pipelineState;
+
+	int samplerCount;
 };
 

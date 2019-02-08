@@ -1,0 +1,79 @@
+#include "VertexBufferDx12.h"
+#include "Dx12Renderer.h"
+
+#define VERTEX_COUNT_FACTOR (1.0f / 300.0f)
+
+VertexBufferDx12::VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage)
+{
+}
+
+VertexBufferDx12::VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage, dxRenderer * rnd)
+{
+	this->rnd = rnd;
+	this->totalSize = size;
+	this->data = malloc(this->totalSize);
+
+	//Note: using upload heaps to transfer static data like vert buffers is not 
+	//recommended. Every time the GPU needs it, the upload heap will be marshalled 
+	//over. Please read up on Default Heap usage. An upload heap is used here for 
+	//code simplicity and because there are very few vertices to actually transfer.
+	D3D12_HEAP_PROPERTIES hp = {};
+	hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+	hp.CreationNodeMask = 1;
+	hp.VisibleNodeMask = 1;
+
+	D3D12_RESOURCE_DESC rd = {};
+	rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	rd.Width			= this->totalSize;
+	rd.Height			= 1;
+	rd.DepthOrArraySize = 1;
+	rd.MipLevels		= 1;
+	rd.SampleDesc.Count = 1;
+	rd.Layout			= D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+	//Creates both a resource and an implicit heap, such that the heap is big enough
+	//to contain the entire resource and the resource is mapped to the heap. 
+	HRESULT hr = this->rnd->device4->CreateCommittedResource(
+		&hp,
+		D3D12_HEAP_FLAG_NONE,
+		&rd,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&this->resource));
+
+	this->resource->SetName(L"vb heap"); 
+
+	this->resourceView.SizeInBytes		= this->totalSize;
+	this->resourceView.BufferLocation	= this->resource->GetGPUVirtualAddress();
+}
+
+VertexBufferDx12::~VertexBufferDx12()
+{
+}
+
+void VertexBufferDx12::setData(const void * data, size_t size, size_t offset)
+{
+	this->resourceView.StrideInBytes = size;
+	memcpy(static_cast<char*>(this->data) + offset, data, size);
+
+	// Read - Copy - Write
+	void* dataBegin = nullptr;
+	this->resource->Map(0, nullptr, &dataBegin);
+	memcpy(dataBegin, this->data, this->totalSize);
+	this->resource->Unmap(0, nullptr);
+}
+
+void VertexBufferDx12::bind(size_t offset, size_t size, unsigned int location)
+{
+	rnd->commandList4->IASetVertexBuffers(location, 1, &resourceView);
+}
+
+void VertexBufferDx12::unbind()
+{
+	rnd->commandList4->IASetVertexBuffers(0, 0, NULL);
+}
+
+size_t VertexBufferDx12::getSize()
+{
+	return this->totalSize;
+}

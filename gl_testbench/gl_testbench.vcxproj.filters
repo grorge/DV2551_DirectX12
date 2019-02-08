@@ -90,13 +90,25 @@
     <ClCompile Include="OpenGL\VertexBufferGL.cpp">
       <Filter>Source Files\OpenGL</Filter>
     </ClCompile>
+    <ClCompile Include="DirectX\ConstantBufferDx12.cpp">
+      <Filter>Source Files\DirectX</Filter>
+    </ClCompile>
     <ClCompile Include="DirectX\Dx12Renderer.cpp">
       <Filter>Source Files\DirectX</Filter>
     </ClCompile>
     <ClCompile Include="DirectX\MaterialDx12.cpp">
       <Filter>Source Files\DirectX</Filter>
     </ClCompile>
-    <ClCompile Include="DirectX\ConstantBufferDx12.cpp">
+    <ClCompile Include="DirectX\RenderStateDx12.cpp">
+      <Filter>Source Files\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectX\Sampler2DDx12.cpp">
+      <Filter>Source Files\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectX\Texture2DDx12.cpp">
+      <Filter>Source Files\DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectX\VertexBufferDx12.cpp">
       <Filter>Source Files\DirectX</Filter>
     </ClCompile>
   </ItemGroup>
@@ -173,16 +185,31 @@
     <ClInclude Include="OpenGL\VertexBufferGL.h">
       <Filter>Source Files\OpenGL</Filter>
     </ClInclude>
-    <ClInclude Include="DirectX\Dx12Renderer.h">
+    <ClInclude Include="DirectX\ConstantBufferDx12.h">
       <Filter>Source Files\DirectX</Filter>
     </ClInclude>
-    <ClInclude Include="Tools.h">
+    <ClInclude Include="DirectX\D3D12Header.h">
+      <Filter>Source Files\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\Dx12Renderer.h">
       <Filter>Source Files\DirectX</Filter>
     </ClInclude>
     <ClInclude Include="DirectX\MaterialDx12.h">
       <Filter>Source Files\DirectX</Filter>
     </ClInclude>
-    <ClInclude Include="DirectX\ConstantBufferDx12.h">
+    <ClInclude Include="DirectX\MeshDx12.h">
+      <Filter>Source Files\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\RenderStateDx12.h">
+      <Filter>Source Files\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\Sampler2DDx12.h">
+      <Filter>Source Files\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\Texture2DDx12.h">
+      <Filter>Source Files\DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX\VertexBufferDx12.h">
       <Filter>Source Files\DirectX</Filter>
     </ClInclude>
   </ItemGroup>
@@ -198,7 +225,7 @@
     <FxCompile Include="..\assets\Dx12\VertexShader.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="..\assets\Dx12\PixelShader.hlsl">
+    <FxCompile Include="..\assets\Dx12\FragmentShader.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
