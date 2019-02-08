@@ -12,7 +12,7 @@ VertexBufferDx12::VertexBufferDx12(
 	dxRenderer * rnd)
 {
 	this->rnd = rnd;
-	this->totalSize = size;
+	this->totalSize = totSize;
 	this->data = malloc(this->totalSize);
 
 	//Note: using upload heaps to transfer static data like vert buffers is not 
@@ -45,6 +45,7 @@ VertexBufferDx12::VertexBufferDx12(
 
 	this->resource->SetName(L"vb heap"); 
 
+	this->resourceView.StrideInBytes	= size;
 	this->resourceView.SizeInBytes		= this->totalSize;
 	this->resourceView.BufferLocation	= this->resource->GetGPUVirtualAddress();
 }
@@ -58,7 +59,6 @@ void VertexBufferDx12::setData(
 	size_t size, 
 	size_t offset)
 {
-	this->resourceView.StrideInBytes = size;
 	memcpy(static_cast<char*>(this->data) + offset, data, size);
 
 	// Read - Copy - Write
