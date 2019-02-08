@@ -5,6 +5,8 @@
 #include "Texture2DDx12.h"
 #include "Sampler2DDx12.h"
 #include "VertexBufferDx12.h"
+#include "MeshDx12.h"
+#include "ConstantBufferDx12.h"
 
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -19,7 +21,7 @@
 #pragma comment(lib,"SDL2main.lib")
 
 
-#define NUM_SWAP_BUFFERS 3
+#define NUM_SWAP_BUFFERS 2
 #define NUM_CONST_BUFFERS 16
 #define NUM_SRV 4
 #define NUM_SAMPLERS 4
@@ -39,6 +41,7 @@ class dxRenderer : public Renderer
 	friend class Texture2DDx12;
 	friend class Sampler2DDx12;
 	friend class VertexBufferDx12;
+	friend class ConstantBufferDx12;
 
 public:
 	dxRenderer();
@@ -67,15 +70,20 @@ public:
 	void setRenderState(RenderState* ps);
 	void submit(Mesh* mesh);
 	void frame();
+	void renderTest();
 	void present();
 
 	ID3D12Device4* GetDevice4() { return this->device4; }
+
+
+	ID3D12Resource1*			vertexBufferResource;
 
 private:
 	SDL_Window* window;
 	HWND hwnd;
 
 	std::vector<Mesh*> drawList;
+	std::vector<MeshDx12*> drawListDx12;
 	std::unordered_map<Technique*, std::vector<Mesh*>> drawList2;
 
 	bool globalWireframeMode = false;
@@ -122,17 +130,26 @@ private:
 
 	ID3D12RootSignature*		rootSignature;
 
-	ID3D12Resource1*			vertexBufferResource;
 	D3D12_VERTEX_BUFFER_VIEW	vertexBufferView;
 
 	//Stefans cBuffers
+	ID3D12DescriptorHeap*	descriptorHeap[NUM_SWAP_BUFFERS] = {};
 	ID3D12DescriptorHeap*		descriptorHeapConstBuffers = {};
 	ID3D12DescriptorHeap*		descriptorHeapSampler = {};
 	ID3D12Resource1*			constantBufferResource[NUM_CONST_BUFFERS] = {};
 	//ConstantBuffer			gConstantBufferCPU = {};
 
-	//ID3D12PipelineState*		pipelineState;
+	ID3D12PipelineState*		pipelineState;
+
+	VertexBuffer* vertBuffer;
+
+	VertexBuffer* posRnd;
+	VertexBuffer* norRnd;
+	VertexBuffer* uvsRnd;
 
 	int samplerCount;
+
+	float colorBuffer[4] = { 0.0f, 1.0f, 1.0f, 1.0f };
+
 };
 

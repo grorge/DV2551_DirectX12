@@ -1,13 +1,15 @@
 #include "VertexBufferDx12.h"
 #include "Dx12Renderer.h"
 
-#define VERTEX_COUNT_FACTOR (1.0f / 300.0f)
-
 VertexBufferDx12::VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage)
 {
+
 }
 
-VertexBufferDx12::VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage, dxRenderer * rnd)
+VertexBufferDx12::VertexBufferDx12(
+	size_t size, 
+	size_t totSize, 
+	dxRenderer * rnd)
 {
 	this->rnd = rnd;
 	this->totalSize = size;
@@ -24,7 +26,7 @@ VertexBufferDx12::VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage, 
 
 	D3D12_RESOURCE_DESC rd = {};
 	rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	rd.Width			= this->totalSize;
+	rd.Width			= totSize;
 	rd.Height			= 1;
 	rd.DepthOrArraySize = 1;
 	rd.MipLevels		= 1;
@@ -51,7 +53,10 @@ VertexBufferDx12::~VertexBufferDx12()
 {
 }
 
-void VertexBufferDx12::setData(const void * data, size_t size, size_t offset)
+void VertexBufferDx12::setData(
+	const void * data, 
+	size_t size, 
+	size_t offset)
 {
 	this->resourceView.StrideInBytes = size;
 	memcpy(static_cast<char*>(this->data) + offset, data, size);
@@ -65,6 +70,7 @@ void VertexBufferDx12::setData(const void * data, size_t size, size_t offset)
 
 void VertexBufferDx12::bind(size_t offset, size_t size, unsigned int location)
 {
+	//rnd->commandList4->IASetVertexBuffers(0, 1, &resourceView);
 	rnd->commandList4->IASetVertexBuffers(location, 1, &resourceView);
 }
 

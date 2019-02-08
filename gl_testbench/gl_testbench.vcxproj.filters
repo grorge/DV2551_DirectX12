@@ -111,6 +111,9 @@
     <ClCompile Include="DirectX\VertexBufferDx12.cpp">
       <Filter>Source Files\DirectX</Filter>
     </ClCompile>
+    <ClCompile Include="DirectX\MeshDx12.cpp">
+      <Filter>Source Files\DirectX</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">
@@ -226,6 +229,12 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="..\assets\Dx12\FragmentShader.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="VStest.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="PStest.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
