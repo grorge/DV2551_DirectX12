@@ -69,7 +69,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 
 	//Specify rasterizer behaviour.
 	gpsd.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	gpsd.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	gpsd.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
 	//Specify blend descriptions.
 	D3D12_RENDER_TARGET_BLEND_DESC defaultRTdesc = {

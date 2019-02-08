@@ -11,6 +11,7 @@ VertexBufferDx12::VertexBufferDx12(size_t size, VertexBuffer::DATA_USAGE usage, 
 {
 	this->rnd = rnd;
 	this->totalSize = size;
+	this->data = malloc(this->totalSize);
 
 	//Note: using upload heaps to transfer static data like vert buffers is not 
 	//recommended. Every time the GPU needs it, the upload heap will be marshalled 
@@ -52,15 +53,14 @@ VertexBufferDx12::~VertexBufferDx12()
 
 void VertexBufferDx12::setData(const void * data, size_t size, size_t offset)
 {
-	//Copy the triangle data to the vertex buffer.
-	void* dataBegin = nullptr;
-	//D3D12_RANGE range = { offset, this->totalSize }; 
-	D3D12_RANGE range = { offset, offset + size }; 
-	this->resource->Map(0, &range, &dataBegin);
-	memcpy(dataBegin, data, size);
-	this->resource->Unmap(0, nullptr);
-
 	this->resourceView.StrideInBytes = size;
+	memcpy(static_cast<char*>(this->data) + offset, data, size);
+
+	// Read - Copy - Write
+	void* dataBegin = nullptr;
+	this->resource->Map(0, nullptr, &dataBegin);
+	memcpy(dataBegin, this->data, this->totalSize);
+	this->resource->Unmap(0, nullptr);
 }
 
 void VertexBufferDx12::bind(size_t offset, size_t size, unsigned int location)

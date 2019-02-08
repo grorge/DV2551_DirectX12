@@ -31,4 +31,6 @@ private:
 
 	ID3D12Resource * resource;
 	D3D12_VERTEX_BUFFER_VIEW resourceView;
+
+	void* data;
 };
