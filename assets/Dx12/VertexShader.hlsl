@@ -25,9 +25,9 @@ VSOut main(
 	uint instance	: SV_InstanceID)
 {
 	VSOut output = (VSOut)0;
-	output.pos	= position + index * instance;
-	output.nor	= normal + index * instance;
-	output.uv	= uv + index * instance;
+	output.pos	= position;
+	output.nor	= normal;
+	output.uv	= uv;
 	//output.color = float4(R, G, B, A);
 
 	return output;
