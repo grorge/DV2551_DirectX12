@@ -237,6 +237,18 @@ int initialiseTestbench()
 
 		Mesh* m = renderer->makeMesh();
 
+		/*triPos[0].x += 0.005f;
+		triPos[0].y += 0.005f;
+		triPos[0].z += 0.005f;
+
+		triPos[1].x += 0.005f;
+		triPos[1].y += 0.005f;
+		triPos[1].z += 0.005f;
+
+		triPos[2].x += 0.005f;
+		triPos[2].y += 0.005f;
+		triPos[2].z += 0.005f;*/
+
 		constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value;
 		size_t offset = i * sizeof(triPos);
 		pos->setData(triPos, sizeof(triPos), offset);

@@ -53,7 +53,7 @@ VertexBufferDx12::~VertexBufferDx12()
 
 void VertexBufferDx12::setData(const void * data, size_t size, size_t offset)
 {
-	this->resourceView.StrideInBytes = size;
+	this->resourceView.StrideInBytes = size / 3;
 	memcpy(static_cast<char*>(this->data) + offset, data, size);
 
 	// Read - Copy - Write

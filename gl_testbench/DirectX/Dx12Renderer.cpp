@@ -469,7 +469,7 @@ void dxRenderer::frame()
 			mesh->bindIAVertexBuffer(element.first);
 		}
 	}
-	this->commandList4->DrawInstanced(3, 1, 0, 0);
+	this->commandList4->DrawInstanced(300, 1, 0, 0);
 
 	//Indicate that the back buffer will be used as render target.
 	SetResourceTransitionBarrier(
