@@ -51,8 +51,24 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	inputLayoutDesc.NumElements = ARRAYSIZE(inputElementDesc);
 
 	////// Pipline State //////
+	const D3D12_DEPTH_STENCILOP_DESC defStencilOP =
+	{
+		D3D12_STENCIL_OP_KEEP,
+		D3D12_STENCIL_OP_KEEP,
+		D3D12_STENCIL_OP_KEEP,
+		D3D12_COMPARISON_FUNC_ALWAYS
+	};
+	D3D12_DEPTH_STENCIL_DESC dsDesc = { };
+	dsDesc.DepthEnable = TRUE;
+	dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	dsDesc.StencilEnable = FALSE;
+	dsDesc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+	dsDesc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+	dsDesc.FrontFace = defStencilOP;
+	dsDesc.BackFace = defStencilOP;
+	
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsd = {};
-
 	//Specify pipeline stages:
 	gpsd.pRootSignature = rnd->rootSignature;
 	gpsd.InputLayout = inputLayoutDesc;
@@ -61,6 +77,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	gpsd.VS.BytecodeLength = vertexBlob->GetBufferSize();
 	gpsd.PS.pShaderBytecode = reinterpret_cast<void*>(pixelBlob->GetBufferPointer());
 	gpsd.PS.BytecodeLength = pixelBlob->GetBufferSize();
+	gpsd.DepthStencilState = dsDesc;
 
 	//Specify render target and depthstencil usage.
 	gpsd.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;

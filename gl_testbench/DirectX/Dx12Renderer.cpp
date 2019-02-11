@@ -374,7 +374,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	hr = this->device4->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&this->dsDescriptorHeap));
-	
+
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsStencilViewDesc = { };
 	dsStencilViewDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsStencilViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -412,13 +412,11 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 		&depthOptClearValue,
 		IID_PPV_ARGS(&this->depthStencilBuffer)
 	);
-
-	hr = this->device4->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&this->dsDescriptorHeap));
 	
 	this->dsDescriptorHeap->SetName(L"DepthStencil Resource Heap");
 
 	this->device4->CreateDepthStencilView(this->depthStencilBuffer, &dsStencilViewDesc, this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-
+	
 
 	return 0;
 }
