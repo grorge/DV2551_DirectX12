@@ -367,9 +367,57 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 		IID_PPV_ARGS(&rootSignature));
 
 
-	// --------------------- 
+	// --------------------- Depth Stencil
 
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = { };
+	dsvHeapDesc.NumDescriptors = 1;
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	hr = this->device4->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&this->dsDescriptorHeap));
 	
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsStencilViewDesc = { };
+	dsStencilViewDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsStencilViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsStencilViewDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	D3D12_CLEAR_VALUE depthOptClearValue = { };
+	depthOptClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+	depthOptClearValue.DepthStencil.Depth = 1.0f;
+	depthOptClearValue.DepthStencil.Stencil = 0;
+
+	D3D12_HEAP_PROPERTIES dsHeapProp = {};
+	dsHeapProp.Type = D3D12_HEAP_TYPE_DEFAULT;
+	dsHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	dsHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	dsHeapProp.CreationNodeMask = 0;
+	dsHeapProp.VisibleNodeMask = 0;
+	
+	D3D12_RESOURCE_DESC dsResourceDesc = { };
+	dsResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dsResourceDesc.Alignment = this->viewport.Width; //Wah?
+	dsResourceDesc.Width = this->viewport.Width;
+	dsResourceDesc.Height = this->viewport.Height;
+	dsResourceDesc.DepthOrArraySize = 1;
+	dsResourceDesc.MipLevels = 1;
+	dsResourceDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsResourceDesc.SampleDesc = DXGI_SAMPLE_DESC{ 1,0 };
+	dsResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	dsResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	this->device4->CreateCommittedResource(
+		&dsHeapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&dsResourceDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&depthOptClearValue,
+		IID_PPV_ARGS(&this->depthStencilBuffer)
+	);
+
+	hr = this->device4->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&this->dsDescriptorHeap));
+	
+	this->dsDescriptorHeap->SetName(L"DepthStencil Resource Heap");
+
+	this->device4->CreateDepthStencilView(this->depthStencilBuffer, &dsStencilViewDesc, this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 
 	return 0;
@@ -431,6 +479,7 @@ void dxRenderer::clearBuffer(unsigned int option)
 	{
 		this->commandList4->ClearRenderTargetView(cdh, clearColor, 0, nullptr);
 	}
+
 }
 
 void dxRenderer::setRenderState(RenderState * ps)
@@ -470,6 +519,7 @@ void dxRenderer::frame()
 
 	UINT backBufferIndex = this->swapChain4->GetCurrentBackBufferIndex();
 
+	this->commandList4->ClearDepthStencilView(this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	//Set constant buffer descriptor heap
 	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeapConstBuffers };
 	//ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeap[backBufferIndex] };
@@ -485,13 +535,12 @@ void dxRenderer::frame()
 	//Set necessary states.
 	this->commandList4->RSSetViewports(1, &this->viewport);
 	this->commandList4->RSSetScissorRects(1, &this->scissorRect);
-
 	
 
 	D3D12_CPU_DESCRIPTOR_HANDLE cdh = this->renderTargetsHeap->GetCPUDescriptorHandleForHeapStart();
 	cdh.ptr += this->renderTargetDescriptorSize * backBufferIndex;
-
-	this->commandList4->OMSetRenderTargets(1, &cdh, true, nullptr);
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	this->commandList4->OMSetRenderTargets(1, &cdh, true, &dsvHandle);
 	this->commandList4->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	size_t count = dl0.size() + dl1.size() + dl2.size() + dl3.size();

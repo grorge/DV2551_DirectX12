@@ -134,6 +134,9 @@ private:
 	ID3D12Resource1*			vertexBufferResource;
 	D3D12_VERTEX_BUFFER_VIEW	vertexBufferView;
 
+	ID3D12Resource* depthStencilBuffer;
+	ID3D12DescriptorHeap* dsDescriptorHeap;
+
 	//Stefans cBuffers
 	ID3D12DescriptorHeap*		descriptorHeapConstBuffers = {};
 	ID3D12DescriptorHeap*		descriptorHeapSampler = {};
