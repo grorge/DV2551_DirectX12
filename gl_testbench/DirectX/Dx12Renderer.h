@@ -142,6 +142,9 @@ private:
 
 	//ID3D12PipelineState*		pipelineState;
 
+	ID3D12Resource* depthStencilBuffer;
+	ID3D12DescriptorHeap* dsDescriptorHeap;
+
 	int samplerCount;
 };
 

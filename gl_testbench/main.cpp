@@ -103,7 +103,8 @@ void updateScene()
 			const float4 trans { 
 				xt[(int)(float)(i + shift) % (TOTAL_PLACES)], 
 				yt[(int)(float)(i + shift) % (TOTAL_PLACES)], 
-				i * (-1.0 / TOTAL_PLACES),
+				i * (1.0 / TOTAL_PLACES), 
+				// Negative Sign Removed because of D3D's Left-Handed coordinate system  
 				0.0
 			};
 			scene[i]->txBuffer->setData(&trans, sizeof(trans), scene[i]->technique->getMaterial(), TRANSLATION);
@@ -242,20 +243,6 @@ int initialiseTestbench()
 
 		Mesh* m = renderer->makeMesh();
 
-		/*
-		triPos[0].x += 0.005f;
-		triPos[0].y += 0.005f;
-		triPos[0].z += 0.005f;
-
-		triPos[1].x += 0.005f;
-		triPos[1].y += 0.005f;
-		triPos[1].z += 0.005f;
-
-		triPos[2].x += 0.005f;
-		triPos[2].y += 0.005f;
-		triPos[2].z += 0.005f;
-		*/
-
 		constexpr auto numberOfPosElements = std::extent<decltype(triPos)>::value;
 		size_t offset = i * sizeof(triPos);
 		pos->setData(triPos, sizeof(triPos), offset);
@@ -319,9 +306,9 @@ void shutdown() {
 
 int main(int argc, char *argv[])
 {
-	renderer = Renderer::makeRenderer(Renderer::BACKEND::GL45);
+	renderer = Renderer::makeRenderer(Renderer::BACKEND::DX12);
 	//renderer = Renderer::makeRenderer(Renderer::BACKEND::GL45);
-	renderer->initialize(800,600);
+	renderer->initialize(800, 600);
 	//renderer->setWinTitle("Dx12");
 	renderer->setClearColor(0.0, 0.1, 0.1, 1.0);
 	initialiseTestbench();

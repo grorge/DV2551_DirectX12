@@ -50,6 +50,23 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	inputLayoutDesc.pInputElementDescs = inputElementDesc;
 	inputLayoutDesc.NumElements = ARRAYSIZE(inputElementDesc);
 
+	const D3D12_DEPTH_STENCILOP_DESC defStencilOP =
+	{
+		D3D12_STENCIL_OP_KEEP,
+		D3D12_STENCIL_OP_KEEP,
+		D3D12_STENCIL_OP_KEEP,
+		D3D12_COMPARISON_FUNC_ALWAYS
+	};
+	D3D12_DEPTH_STENCIL_DESC dsDesc = { };
+	dsDesc.DepthEnable = TRUE;
+	dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	dsDesc.StencilEnable = FALSE;
+	dsDesc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+	dsDesc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+	dsDesc.FrontFace = defStencilOP;
+	dsDesc.BackFace = defStencilOP;
+
 	////// Pipline State //////
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsd = {};
 
@@ -66,11 +83,17 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	gpsd.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	gpsd.NumRenderTargets = 1;
 
+	gpsd.DepthStencilState = dsDesc;
+	gpsd.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+
 	gpsd.SampleDesc.Count = 1;
 	gpsd.SampleMask = UINT_MAX;
 
 	//Specify rasterizer behaviour.
-	gpsd.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	if (identification == 0)
+		gpsd.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	else
+		gpsd.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	gpsd.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
 
 	//Specify blend descriptions.
@@ -82,7 +105,7 @@ int MaterialDx12::compileMaterial(std::string & errString)
 	for (UINT i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
 		gpsd.BlendState.RenderTarget[i] = defaultRTdesc;
 
-	rnd->device4->CreateGraphicsPipelineState(&gpsd, IID_PPV_ARGS(&this->pipeLineState));
+	HRESULT hr = rnd->device4->CreateGraphicsPipelineState(&gpsd, IID_PPV_ARGS(&this->pipeLineState));
 
 	isValid = true;
 	return 0;
@@ -158,18 +181,25 @@ int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 	/*for (const auto &myPair : myMap) {
 		std::cout << myPair.first << "\n";
 	}*/
+	std::string vs = "#define SHADER_ID " + std::to_string(identification) + "\n";
+	std::string ps = "";
 
 	std::string filepath = shaderFileNames[type];
 	std::wstring wFilepath = std::wstring(filepath.begin(), filepath.end());
 	LPCWSTR lpcwFilePath = wFilepath.c_str();
 
-	std::cout << "__ COMPILE SHADER __" << std::endl;
 	for (auto element : this->shaderDefines) {
 		for (auto s : element.second)
 		{
-			std::cout << " WW " << s << std::endl;
+			vs.append(s);
+			ps.append(s);
 		}
 	}
+
+	vs.append("struct VSIn { float4 pos : POSITION0; float4 nor : NORMAL0; float2 uv : TEXCOORD0; }; struct VSOut { float4 pos : SV_POSITION; float4 nor : NORMAL0; float4 color : COLOR0; float2 uv : TEXCOORD0; }; cbuffer descriptorHeapConstantBuffer1 : register (b0) { float4 translate[512]; } cbuffer descriptorHeapConstantBuffer2 : register (b1) { float4 color[512]; } VSOut main( float4 position : POSITION0, float4 normal : NORMAL0, float2 uv : TEXCOORD0, uint vertex : SV_VertexID, uint instance : SV_InstanceID) { VSOut output = (VSOut)0; output.pos = position + translate[instance + (SHADER_ID * 25)]; output.nor = normal; output.uv = uv; output.color = color[instance  + (SHADER_ID * 25)]; return output; }");
+	ps.append("struct VSOut { float4 pos : SV_POSITION; float4 nor : NORMAL0; float4 color : COLOR0; float2 uv : TEXCOORD0; }; float4 main(VSOut input) : SV_TARGET0 { /*return float4(1.0f, 0.0f, 1.0f, 1.0f);*/ return input.color; }");
+
+	std::cout << vs << std::endl;
 
 
 	switch (type)
@@ -187,34 +217,64 @@ int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 			macro[i].Definition = shaderDefines.;
 		}*/
 
-		hr = D3DCompileFromFile(
-			lpcwFilePath, // filename
-			macro,		// optional macros
-			nullptr,		// optional include files
-			"main",		// entry point
-			"vs_5_0",		// shader model (target)
-			0,				// shader compile options			// here DEBUGGING OPTIONS
-			0,				// effect compile options
-			&this->vertexBlob,	// double pointer to ID3DBlob		
-			nullptr			// pointer for Error Blob messages.
-							// how to use the Error blob, see here
-							// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
+		hr = D3DCompile(
+			vs.c_str(),
+			vs.length(),
+			NULL,
+			NULL,
+			NULL, //D3D_COMPILE_STANDARD_FILE_INCLUDE,
+			"main",
+			"vs_5_0",
+			D3DCOMPILE_ENABLE_STRICTNESS,
+			0,
+			&this->vertexBlob,
+			nullptr
 		);
+
+		//hr = D3DCompileFromFile(
+		//	lpcwFilePath, // filename
+		//	macro,		// optional macros
+		//	nullptr,		// optional include files
+		//	"main",		// entry point
+		//	"vs_5_0",		// shader model (target)
+		//	0,				// shader compile options			// here DEBUGGING OPTIONS
+		//	0,				// effect compile options
+		//	&this->vertexBlob,	// double pointer to ID3DBlob		
+		//	nullptr			// pointer for Error Blob messages.
+		//					// how to use the Error blob, see here
+		//					// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
+		//);
 		break;
+
 	case Material::ShaderType::PS:
-		hr = D3DCompileFromFile(
-			lpcwFilePath,				// filename
-			nullptr,		// optional macros
-			nullptr,		// optional include files
-			"main",		// entry point
-			"ps_5_0",		// shader model (target)
-			0,				// shader compile options			// here DEBUGGING OPTIONS
-			0,				// effect compile options
-			&this->pixelBlob,		// double pointer to ID3DBlob		
-			nullptr			// pointer for Error Blob messages.
-							// how to use the Error blob, see here
-							// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
+
+		hr = D3DCompile(
+			ps.c_str(),
+			ps.length(),
+			NULL,
+			NULL,
+			NULL, //D3D_COMPILE_STANDARD_FILE_INCLUDE,
+			"main",
+			"ps_5_0",
+			D3DCOMPILE_ENABLE_STRICTNESS,
+			0,
+			&this->pixelBlob,
+			nullptr
 		);
+
+		//hr = D3DCompileFromFile(
+		//	lpcwFilePath,				// filename
+		//	nullptr,		// optional macros
+		//	nullptr,		// optional include files
+		//	"main",		// entry point
+		//	"ps_5_0",		// shader model (target)
+		//	0,				// shader compile options			// here DEBUGGING OPTIONS
+		//	0,				// effect compile options
+		//	&this->pixelBlob,		// double pointer to ID3DBlob		
+		//	nullptr			// pointer for Error Blob messages.
+		//					// how to use the Error blob, see here
+		//					// https://msdn.microsoft.com/en-us/library/windows/desktop/hh968107(v=vs.85).aspx
+		//);
 		break;
 	case Material::ShaderType::GS:
 		break;

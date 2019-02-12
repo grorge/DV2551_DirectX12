@@ -298,6 +298,57 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	D3D12_CPU_DESCRIPTOR_HANDLE cdh3 = descriptorHeap[SAMPLER_DESC_HEAP_INDEX]->GetCPUDescriptorHandleForHeapStart();
 	*/
 
+	// --------------------- Depth Stencil
+
+	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = { };
+	dsvHeapDesc.NumDescriptors = 1;
+	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	hr = this->device4->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&this->dsDescriptorHeap));
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsStencilViewDesc = { };
+	dsStencilViewDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsStencilViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsStencilViewDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	D3D12_CLEAR_VALUE depthOptClearValue = { };
+	depthOptClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+	depthOptClearValue.DepthStencil.Depth = 1.0f;
+	depthOptClearValue.DepthStencil.Stencil = 0;
+
+	D3D12_HEAP_PROPERTIES dsHeapProp = {};
+	dsHeapProp.Type = D3D12_HEAP_TYPE_DEFAULT;
+	dsHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	dsHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	dsHeapProp.CreationNodeMask = 0;
+	dsHeapProp.VisibleNodeMask = 0;
+
+	D3D12_RESOURCE_DESC dsResourceDesc = { };
+	dsResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dsResourceDesc.Alignment = 65536; //Wah?
+	dsResourceDesc.Width = this->viewport.Width;
+	dsResourceDesc.Height = this->viewport.Height;
+	dsResourceDesc.DepthOrArraySize = 1;
+	dsResourceDesc.MipLevels = 1;
+	dsResourceDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsResourceDesc.SampleDesc = DXGI_SAMPLE_DESC{ 1,0 };
+	dsResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	dsResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	hr = this->device4->CreateCommittedResource(
+		&dsHeapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&dsResourceDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&depthOptClearValue,
+		IID_PPV_ARGS(&this->depthStencilBuffer)
+	);
+
+	this->dsDescriptorHeap->SetName(L"DepthStencil Resource Heap");
+
+	this->device4->CreateDepthStencilView(this->depthStencilBuffer, &dsStencilViewDesc, this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
+
 	// ---------------- Root signature
 
 	//define descriptor range(s)
@@ -315,11 +366,11 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	dtRangesCBV[1].RegisterSpace = 0; //register(b1,space0);
 	dtRangesCBV[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-
 	//create a descriptor table
 	D3D12_ROOT_DESCRIPTOR_TABLE dtCBV;
 	dtCBV.NumDescriptorRanges = ARRAYSIZE(dtRangesCBV);
 	dtCBV.pDescriptorRanges = dtRangesCBV;
+
 
 	//define descriptor range(s)
 	D3D12_DESCRIPTOR_RANGE  dtRangesSRV[1];
@@ -333,6 +384,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	D3D12_ROOT_DESCRIPTOR_TABLE dtSRV;
 	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
 	dtSRV.pDescriptorRanges = dtRangesSRV;
+
 
 
 
@@ -427,9 +479,11 @@ void dxRenderer::clearBuffer(unsigned int option)
 	D3D12_CPU_DESCRIPTOR_HANDLE cdh = this->renderTargetsHeap->GetCPUDescriptorHandleForHeapStart();
 	cdh.ptr += this->renderTargetDescriptorSize * this->swapChain4->GetCurrentBackBufferIndex();
 
+	this->commandList4->ClearRenderTargetView(cdh, clearColor, 0, nullptr);
+	this->commandList4->ClearDepthStencilView(this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
 	if (3 == option)
 	{
-		this->commandList4->ClearRenderTargetView(cdh, clearColor, 0, nullptr);
 	}
 }
 
@@ -491,16 +545,22 @@ void dxRenderer::frame()
 	D3D12_CPU_DESCRIPTOR_HANDLE cdh = this->renderTargetsHeap->GetCPUDescriptorHandleForHeapStart();
 	cdh.ptr += this->renderTargetDescriptorSize * backBufferIndex;
 
-	this->commandList4->OMSetRenderTargets(1, &cdh, true, nullptr);
+	this->commandList4->OMSetRenderTargets(1, &cdh, true, 
+		&this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart()
+	);
 	this->commandList4->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	
 	size_t count = dl0.size() + dl1.size() + dl2.size() + dl3.size();
 	UINT byteWidth = sizeof(float) * 4;
 	void* translationData	= malloc(byteWidth * count);
 	void* colorData			= malloc(byteWidth * count);
-	int i = 0;
 
-	UINT offset;
+	void* mappedMem = nullptr;
+	D3D12_RANGE writeRange = { 0, byteWidth * count };
+
+	int i = 0;
+	UINT offset = 0;
 	for (Mesh* mesh : dl0)
 	{
 		offset = i * byteWidth;
@@ -597,8 +657,27 @@ void dxRenderer::frame()
 		i++;
 	}
 
+	mappedMem = nullptr;
+	writeRange = { 0, byteWidth * count };
+	this->constantBufferResource[CONST_BUFFER_TRANSLATION]->Map(0, nullptr, &mappedMem);
+	memcpy(mappedMem, translationData, byteWidth * count);
+	this->constantBufferResource[CONST_BUFFER_TRANSLATION]->Unmap(0, &writeRange);
+
+	this->constantBufferResource[CONST_BUFFER_COLOR]->Map(0, nullptr, &mappedMem);
+	memcpy(mappedMem, colorData, byteWidth * count);
+	this->constantBufferResource[CONST_BUFFER_COLOR]->Unmap(0, &writeRange);
+
+	this->dl0.front()->technique->enable(this);
+	this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);
+	this->dl1.front()->technique->enable(this);
+	this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);
+	this->dl2.front()->technique->enable(this);
+	this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);
+	this->dl3.front()->technique->enable(this);
+	this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);
+
 	//Update GPU memory
-	void* mappedMem = nullptr;
+	/*void* mappedMem = nullptr;
 	D3D12_RANGE writeRange = { 0, byteWidth * count };
 	this->constantBufferResource[CONST_BUFFER_TRANSLATION]->Map(0, nullptr, &mappedMem);
 	memcpy(mappedMem, translationData, byteWidth * count);
@@ -608,17 +687,10 @@ void dxRenderer::frame()
 	memcpy(mappedMem, colorData, byteWidth * count);
 	this->constantBufferResource[CONST_BUFFER_COLOR]->Unmap(0, &writeRange);
 
-
-	this->commandList4->DrawInstanced(3, (UINT)i, 0, 0);
-
-	// apply shader 0
-	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
-	//// apply shader 1
-	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
-	//// apply shader 2
-	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
-	//// apply shader 3
-	//this->commandList4->DrawInstanced(3, TOTAL_TRIS / 4, 0, 0);
+	this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);*/
+	//this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);
+	//this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);
+	//this->commandList4->DrawInstanced(3, (UINT)25, 0, 0);
 
 	//Indicate that the back buffer will be used as render target.
 	SetResourceTransitionBarrier(
@@ -640,7 +712,7 @@ void dxRenderer::present()
 {
 	//Present the frame.
 	DXGI_PRESENT_PARAMETERS pp = {};
-	this->swapChain4->Present1(1, 0, &pp);
+	this->swapChain4->Present1(0, 0, &pp);
 	this->dl0.clear();
 	this->dl1.clear();
 	this->dl2.clear();
