@@ -116,8 +116,6 @@ int OpenGLRenderer::initialize(unsigned int width, unsigned int height) {
 		fprintf(stderr, "Error GLEW: %s\n", glewGetErrorString(err));
 	}
 
-	SDL_GL_SetSwapInterval(0);
-
 	return 0;
 }
 

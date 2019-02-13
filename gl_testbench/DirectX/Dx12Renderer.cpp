@@ -712,7 +712,7 @@ void dxRenderer::present()
 {
 	//Present the frame.
 	DXGI_PRESENT_PARAMETERS pp = {};
-	this->swapChain4->Present1(0, 0, &pp);
+	this->swapChain4->Present1(1, 0, &pp);
 	this->dl0.clear();
 	this->dl1.clear();
 	this->dl2.clear();
