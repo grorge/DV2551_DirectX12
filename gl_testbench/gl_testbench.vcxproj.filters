@@ -212,6 +212,9 @@
     <ClInclude Include="DirectX\VertexBufferDx12.h">
       <Filter>Source Files\DirectX</Filter>
     </ClInclude>
+    <ClInclude Include="DirectX\D3dx12.h">
+      <Filter>Source Files\DirectX</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\assets\GL45\FragmentShader.glsl">

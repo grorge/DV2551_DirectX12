@@ -2,7 +2,7 @@
 #include "Dx12Renderer.h"
 
 //#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+
 
 Texture2DDx12::Texture2DDx12()
 {
@@ -19,14 +19,15 @@ Texture2DDx12::~Texture2DDx12()
 
 int Texture2DDx12::loadFromFile(std::string filename)
 {
-	int w, h, bpp;
-	unsigned char* rgb = stbi_load(filename.c_str(), &w, &h, &bpp, STBI_rgb_alpha);
-	if (rgb == nullptr)
+	/*int w, h, bpp;
+	unsigned char* rgba = stbi_load(filename.c_str(), &w, &h, &bpp, STBI_rgb_alpha);
+	if (rgba == nullptr)
 	{
 		fprintf(stderr, "Error loading texture file: %s\n", filename.c_str());
 		return -1;
-	}
+	}*/
 
+	/*
 	UINT textureAlined = (w * sizeof(DWORD) + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) & ~D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
 
 	D3D12_SUBRESOURCE_FOOTPRINT pitchedDesc = {  };
@@ -71,8 +72,32 @@ int Texture2DDx12::loadFromFile(std::string filename)
 		NULL,
 		IID_PPV_ARGS(&resource)
 	);
+	*/
 
-	return hr == S_OK ? 1 : -1;
+	/*void* dataBegin = nullptr;
+	rnd->textureResource->Map(0, nullptr, &dataBegin);
+	memcpy(dataBegin, rgba, w * h);
+	rnd->textureResource->Unmap(0, nullptr);*/
+
+	/*D3D12_TEXTURE_COPY_LOCATION tcl = {};
+	tcl.pResource = rnd->textureResource;
+	tcl.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	tcl.SubresourceIndex = 0;
+
+
+	rnd->commandAllocator->Reset();
+	rnd->commandList4->Reset(rnd->commandAllocator, NULL);
+
+	
+
+	rnd->commandList4->Close();
+
+	ID3D12CommandList* listsToExecute[] = { rnd->commandList4 };
+	rnd->commandQueue->ExecuteCommandLists(ARRAYSIZE(listsToExecute), listsToExecute);
+
+	rnd->wait4GPU();*/
+
+	return 1;
 }
 
 void Texture2DDx12::bind(unsigned int slot)

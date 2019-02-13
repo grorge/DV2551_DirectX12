@@ -4,6 +4,9 @@
 #include "../Tools.h"
 #include "MeshDx12.h"
 
+#include "stb_image.h"
+#include "D3dx12.h"
+
 dxRenderer::dxRenderer()
 {
 	this->samplerCount = 0;
@@ -236,7 +239,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	// ---------------- Constant buffer Rescources
 
 	D3D12_DESCRIPTOR_HEAP_DESC heapDescriptorDesc = {};
-	heapDescriptorDesc.NumDescriptors = NUM_CONST_BUFFERS;
+	heapDescriptorDesc.NumDescriptors = NUM_CONST_BUFFERS + 1;
 	heapDescriptorDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	heapDescriptorDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	device4->CreateDescriptorHeap(&heapDescriptorDesc, IID_PPV_ARGS(&descriptorHeapConstBuffers));
@@ -285,18 +288,85 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 		cdh2.ptr += constBuffersSize;
 	}
 
-	// ---------------- Create Sampler
+	// ---------------- Create Shader Resoure View
 
-	D3D12_DESCRIPTOR_HEAP_DESC heapDescriptorDescSampler = {};
-	heapDescriptorDescSampler.NumDescriptors = NUM_SAMPLERS;
-	heapDescriptorDescSampler.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	heapDescriptorDescSampler.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-	device4->CreateDescriptorHeap(&heapDescriptorDescSampler, IID_PPV_ARGS(&descriptorHeapSampler));
+	int w, h, bpp;
+	std::string filename = "../assets/textures/fatboy.png";
+	unsigned char* rgba = stbi_load(filename.c_str(), &w, &h, &bpp, STBI_rgb_alpha);
+	if (rgba == nullptr)
+	{
+		fprintf(stderr, "Error loading texture file: %s\n", filename.c_str());
+		return -1;
+	}
 
-	/*
-	UINT SamplerSize = device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-	D3D12_CPU_DESCRIPTOR_HANDLE cdh3 = descriptorHeap[SAMPLER_DESC_HEAP_INDEX]->GetCPUDescriptorHandleForHeapStart();
-	*/
+
+	ID3D12Resource1* textureUploadHeap = nullptr;
+
+	commandAllocator->Reset();
+	commandList4->Reset(commandAllocator, NULL);
+
+	// Create the texture.
+	{
+		// Describe and create a Texture2D.
+		D3D12_RESOURCE_DESC textureDesc = {};
+		textureDesc.MipLevels = 1;
+		textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureDesc.Width = w;
+		textureDesc.Height = h;
+		textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		textureDesc.DepthOrArraySize = 1;
+		textureDesc.SampleDesc.Count = 1;
+		textureDesc.SampleDesc.Quality = 0;
+		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+		device4->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+			D3D12_HEAP_FLAG_NONE,
+			&textureDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&textureResource));
+
+		const UINT64 uploadBufferSize = GetRequiredIntermediateSize(textureResource, 0, 1);
+
+		// Create the GPU upload buffer.
+		device4->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&textureUploadHeap));
+
+		// Copy data to the intermediate upload heap and then schedule a copy 
+		// from the upload heap to the Texture2D.
+		D3D12_SUBRESOURCE_DATA textureData = {};
+		textureData.pData = &rgba[0];
+		textureData.RowPitch = w * 4;
+		textureData.SlicePitch = textureData.RowPitch * h;
+
+		// Upload Texture To Resource
+		UpdateSubresources(commandList4, textureResource, textureUploadHeap, 0, 0, 1, &textureData);
+		
+		// Change from upload to shader resource view
+		commandList4->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(textureResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+		// Describe and create a SRV for the texture.
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = textureDesc.Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+		device4->CreateShaderResourceView(textureResource, &srvDesc, cdh2);
+	}
+
+	// Close the command list and execute it to begin the initial GPU setup.
+	commandList4->Close();
+	ID3D12CommandList* ppCommandLists[] = { commandList4 };
+	commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
+	// Create synchronization objects and wait until assets have been uploaded to the GPU.
+	wait4GPU();
 
 	// --------------------- Depth Stencil
 
@@ -325,7 +395,7 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 
 	D3D12_RESOURCE_DESC dsResourceDesc = { };
 	dsResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	dsResourceDesc.Alignment = 65536; //Wah?
+	dsResourceDesc.Alignment = 0;// 65536; //Wah?
 	dsResourceDesc.Width = this->viewport.Width;
 	dsResourceDesc.Height = this->viewport.Height;
 	dsResourceDesc.DepthOrArraySize = 1;
@@ -351,14 +421,28 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 
 	// ---------------- Root signature
 
+	D3D12_STATIC_SAMPLER_DESC sampler = {};
+	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler.MipLODBias = 0;
+	sampler.MaxAnisotropy = 0;
+	sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+	sampler.MinLOD = 0.0f;
+	sampler.MaxLOD = D3D12_FLOAT32_MAX;
+	sampler.ShaderRegister = 0;
+	sampler.RegisterSpace = 0;
+	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
 	//define descriptor range(s)
-	D3D12_DESCRIPTOR_RANGE  dtRangesCBV[2];
+	D3D12_DESCRIPTOR_RANGE  dtRangesCBV[3];
 	dtRangesCBV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	dtRangesCBV[0].NumDescriptors = 1;
 	dtRangesCBV[0].BaseShaderRegister = 0; //register b0
 	dtRangesCBV[0].RegisterSpace = 0; //register(b0,space0);
 	dtRangesCBV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
 
 	dtRangesCBV[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	dtRangesCBV[1].NumDescriptors = 1;
@@ -366,47 +450,33 @@ int dxRenderer::initialize(unsigned int width, unsigned int height)
 	dtRangesCBV[1].RegisterSpace = 0; //register(b1,space0);
 	dtRangesCBV[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	dtRangesCBV[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	dtRangesCBV[2].NumDescriptors = 1;
+	dtRangesCBV[2].BaseShaderRegister = 0; //register t0
+	dtRangesCBV[2].RegisterSpace = 0; //register(t0,space1);
+	dtRangesCBV[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+
 	//create a descriptor table
 	D3D12_ROOT_DESCRIPTOR_TABLE dtCBV;
 	dtCBV.NumDescriptorRanges = ARRAYSIZE(dtRangesCBV);
 	dtCBV.pDescriptorRanges = dtRangesCBV;
 
-
-	//define descriptor range(s)
-	D3D12_DESCRIPTOR_RANGE  dtRangesSRV[1];
-	dtRangesSRV[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	dtRangesSRV[0].NumDescriptors = NUM_SRV; 
-	dtRangesSRV[0].BaseShaderRegister = 0; //register t0
-	dtRangesSRV[0].RegisterSpace = 0; //register(t0,space1);
-	dtRangesSRV[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-	//create a descriptor table
-	D3D12_ROOT_DESCRIPTOR_TABLE dtSRV;
-	dtSRV.NumDescriptorRanges = ARRAYSIZE(dtRangesSRV);
-	dtSRV.pDescriptorRanges = dtRangesSRV;
-
-
-
-
 	//create root parameter
-	D3D12_ROOT_PARAMETER  rootParam[2];
+	D3D12_ROOT_PARAMETER  rootParam[1];
 	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[0].DescriptorTable = dtCBV;
 	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[1].DescriptorTable = dtSRV;
-	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParam[0].DescriptorTable = dtCBV;
 
 	D3D12_ROOT_SIGNATURE_DESC rsDesc;
 	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsDesc.NumParameters = ARRAYSIZE(rootParam);
 	rsDesc.pParameters = rootParam;
-	rsDesc.NumStaticSamplers = 0;
-	rsDesc.pStaticSamplers = nullptr;
+	rsDesc.NumStaticSamplers = 1;
+	rsDesc.pStaticSamplers = &sampler;
 
 	ID3DBlob* sBlob;
-	D3D12SerializeRootSignature(
+	hr = D3D12SerializeRootSignature(
 		&rsDesc,
 		D3D_ROOT_SIGNATURE_VERSION_1,
 		&sBlob,
@@ -540,8 +610,6 @@ void dxRenderer::frame()
 	this->commandList4->RSSetViewports(1, &this->viewport);
 	this->commandList4->RSSetScissorRects(1, &this->scissorRect);
 
-	
-
 	D3D12_CPU_DESCRIPTOR_HANDLE cdh = this->renderTargetsHeap->GetCPUDescriptorHandleForHeapStart();
 	cdh.ptr += this->renderTargetDescriptorSize * backBufferIndex;
 
@@ -549,7 +617,6 @@ void dxRenderer::frame()
 		&this->dsDescriptorHeap->GetCPUDescriptorHandleForHeapStart()
 	);
 	this->commandList4->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
 	
 	size_t count = dl0.size() + dl1.size() + dl2.size() + dl3.size();
 	UINT byteWidth = sizeof(float) * 4;
@@ -706,6 +773,7 @@ void dxRenderer::frame()
 	this->commandQueue->ExecuteCommandLists(ARRAYSIZE(listsToExecute), listsToExecute);
 
 	free(translationData);
+	free(colorData);
 }
 
 void dxRenderer::present()

@@ -32,12 +32,6 @@ int MaterialDx12::compileMaterial(std::string & errString)
 		errString = err;
 		exit(-1);
 	};
-
-	//rnd->GetDevice4();
-	// try to link the program
-	// link shader program (connect vs and ps)
-	//if (program != 0)
-	//	glDeleteProgram(program);
 	
 	////// Input Layout //////
 	D3D12_INPUT_ELEMENT_DESC inputElementDesc[] = {
@@ -196,10 +190,10 @@ int MaterialDx12::compileShader(ShaderType type, std::string & errString)
 		}
 	}
 
-	vs.append("struct VSIn { float4 pos : POSITION0; float4 nor : NORMAL0; float2 uv : TEXCOORD0; }; struct VSOut { float4 pos : SV_POSITION; float4 nor : NORMAL0; float4 color : COLOR0; float2 uv : TEXCOORD0; }; cbuffer descriptorHeapConstantBuffer1 : register (b0) { float4 translate[512]; } cbuffer descriptorHeapConstantBuffer2 : register (b1) { float4 color[512]; } VSOut main( float4 position : POSITION0, float4 normal : NORMAL0, float2 uv : TEXCOORD0, uint vertex : SV_VertexID, uint instance : SV_InstanceID) { VSOut output = (VSOut)0; output.pos = position + translate[instance + (SHADER_ID * 25)]; output.nor = normal; output.uv = uv; output.color = color[instance  + (SHADER_ID * 25)]; return output; }");
-	ps.append("struct VSOut { float4 pos : SV_POSITION; float4 nor : NORMAL0; float4 color : COLOR0; float2 uv : TEXCOORD0; }; float4 main(VSOut input) : SV_TARGET0 { /*return float4(1.0f, 0.0f, 1.0f, 1.0f);*/ return input.color; }");
+	vs.append("struct VSIn { float4 pos : POSITION0; float4 nor : NORMAL0; float2 uv : TEXCOORD0; }; struct VSOut { float4 pos : SV_POSITION; float4 nor : NORMAL0; float4 color : COLOR0; float2 uv : TEXCOORD0; }; cbuffer descriptorHeapConstantBuffer1 : register (b0) { float4 translate[512]; } cbuffer descriptorHeapConstantBuffer2 : register (b1) { float4 color[512]; } VSOut main( float4 position : POSITION0, float4 normal : NORMAL0, float2 uv : TEXCOORD0, uint vertex : SV_VertexID, uint instance : SV_InstanceID) { VSOut output = (VSOut)0; output.pos = position - translate[instance + (SHADER_ID * 25)]; output.nor = normal; output.uv = uv; output.color = color[instance  + (SHADER_ID * 25)]; return output; }");
+	ps.append("struct VSOut { float4 pos : SV_POSITION; float4 nor : NORMAL0; float4 color : COLOR0; float2 uv : TEXCOORD0; }; SamplerState samplerState : register(s0); Texture2D texture2d : register (t0); float4 main(VSOut input) : SV_TARGET0 { float4 color = 1.0f; \n #ifdef DIFFUSE_SLOT \n color = /*float4(1.0f, 0.0f, 1.0f, 1.0f);*/ texture2d.Sample(samplerState, input.uv); \n #else \n color = input.color; \n #endif \n return color; }");
 
-	std::cout << vs << std::endl;
+	//std::cout << vs << std::endl;
 
 
 	switch (type)

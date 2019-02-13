@@ -20,7 +20,7 @@
 
 
 #define NUM_SWAP_BUFFERS 3
-#define NUM_CONST_BUFFERS 6
+#define NUM_CONST_BUFFERS 2
 #define NUM_SRV 1
 #define NUM_SAMPLERS 1
 
@@ -133,6 +133,8 @@ private:
 
 	ID3D12Resource1*			vertexBufferResource;
 	D3D12_VERTEX_BUFFER_VIEW	vertexBufferView;
+			
+	ID3D12Resource1*			textureResource;
 
 	//Stefans cBuffers
 	ID3D12DescriptorHeap*		descriptorHeapConstBuffers = {};

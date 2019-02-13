@@ -103,8 +103,7 @@ void updateScene()
 			const float4 trans { 
 				xt[(int)(float)(i + shift) % (TOTAL_PLACES)], 
 				yt[(int)(float)(i + shift) % (TOTAL_PLACES)], 
-				i * (1.0 / TOTAL_PLACES), 
-				// Negative Sign Removed because of D3D's Left-Handed coordinate system  
+				i * (-1.0 / TOTAL_PLACES), 
 				0.0
 			};
 			scene[i]->txBuffer->setData(&trans, sizeof(trans), scene[i]->technique->getMaterial(), TRANSLATION);

@@ -14,7 +14,7 @@ Sampler2DDx12::Sampler2DDx12(dxRenderer * rnd, int location)
 	this->cpuHandler = { 0 };
 	this->rnd = rnd;
 
-	this->samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	/*this->samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	this->samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	this->samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 
@@ -22,7 +22,7 @@ Sampler2DDx12::Sampler2DDx12(dxRenderer * rnd, int location)
 	UINT samplerSize = rnd->device4->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
 	this->cpuHandler.ptr += samplerSize * location;
-	rnd->device4->CreateSampler(&samplerDesc, this->cpuHandler);
+	rnd->device4->CreateSampler(&samplerDesc, this->cpuHandler);*/
 }
 
 Sampler2DDx12::~Sampler2DDx12()

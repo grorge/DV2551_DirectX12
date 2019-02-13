@@ -192,6 +192,7 @@
     <ClInclude Include="ConstantBuffer.h" />
     <ClInclude Include="DirectX\ConstantBufferDx12.h" />
     <ClInclude Include="DirectX\D3D12Header.h" />
+    <ClInclude Include="DirectX\D3dx12.h" />
     <ClInclude Include="DirectX\Dx12Renderer.h" />
     <ClInclude Include="DirectX\MaterialDx12.h" />
     <ClInclude Include="DirectX\MeshDx12.h" />
